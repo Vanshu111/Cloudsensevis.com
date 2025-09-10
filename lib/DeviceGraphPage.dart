@@ -5652,7 +5652,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         else if (label == 'Pressure')
           unit = 'hpa';
         else if (label == 'Salinity')
-          unit = 'mg/L'; // parts per thousand (common for salinity)
+          unit = 'mg/L';
         else if (label == 'Potassium')
           unit = 'mg/kg';
         else if (label == 'Nitrogen')
@@ -5662,7 +5662,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         else if (label == 'EC' || label == 'Electrical Conductivity')
           unit = 'µS/cm';
         else if (label == 'pH')
-          unit = ''; // dimensionless
+          unit = '';
         else if (label == 'Wind Direction') unit = '°';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
             onTap: () => _scrollToChart(label));
@@ -5823,24 +5823,37 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   }
 
   void _scrollToChart(String parameter) {
-    final key = _chartKeys[parameter];
-    if (key != null && key.currentContext != null) {
-      final RenderBox renderBox =
-          key.currentContext!.findRenderObject() as RenderBox;
-      final position = renderBox.localToGlobal(Offset.zero).dy;
-      final scrollPosition = _scrollController.offset +
-          position -
-          MediaQuery.of(context).padding.top -
-          kToolbarHeight;
-      _scrollController.animateTo(
-        scrollPosition,
-        duration: Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
+    setState(() {
+      if (_selectedParam == parameter) {
+        // If the same parameter is clicked again, reset to initial view
+        _selectedParam = null;
+        _scrollController.animateTo(
+          0,
+          duration: Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        // Scroll to the selected chart
+        _selectedParam = parameter;
+        final key = _chartKeys[parameter];
+        if (key != null && key.currentContext != null) {
+          final RenderBox renderBox =
+              key.currentContext!.findRenderObject() as RenderBox;
+          final position = renderBox.localToGlobal(Offset.zero).dy;
+          final scrollPosition = _scrollController.offset +
+              position -
+              MediaQuery.of(context).padding.top -
+              kToolbarHeight;
+          _scrollController.animateTo(
+            scrollPosition,
+            duration: Duration(milliseconds: 500),
+            curve: Curves.easeInOut,
+          );
+        }
+      }
+    });
   }
 
-  // Updated _buildParamStat with hover, touch, and persistent selection
   Widget _buildParamStat(String label, double? current, double? min,
       double? max, String unit, bool isDarkMode,
       {VoidCallback? onTap}) {
@@ -5873,18 +5886,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
     final IconData icon = parameterIcons[label] ?? Icons.help;
 
-    // Determine if the device is mobile based on screen width
     bool isMobile = MediaQuery.of(context).size.width < 600;
-
-    // Determine if this parameter is selected or being hovered/touched
     bool isSelected = _selectedParam == label;
     bool isHovered = _isParamHovering[label] ?? false;
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedParam = label; // Set this parameter as selected
-        });
         if (onTap != null) {
           onTap();
         }
