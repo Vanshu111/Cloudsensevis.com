@@ -441,7 +441,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
-              (d) => d["DeviceId"].toString() == "11",
+              (d) => d["DeviceId"].toString() == "1",
               orElse: () => devices.first,
             );
 
@@ -1245,7 +1245,7 @@ class _HomePageState extends State<HomePage> {
                                           Widget deviceButton = TextButton(
                                             style: (selectedDevice?["DeviceId"]
                                                         .toString() ==
-                                                    "11")
+                                                    "1")
                                                 ? TextButton.styleFrom(
                                                     backgroundColor: !isDarkMode
                                                         ? Colors.white
@@ -1281,7 +1281,7 @@ class _HomePageState extends State<HomePage> {
                                             onPressed: () async {
                                               if (selectedDevice?["DeviceId"]
                                                       .toString() ==
-                                                  "11") {
+                                                  "1") {
                                                 // Check nearest
                                                 bool gotLocation =
                                                     await _getUserLocationAndFindNearest();
@@ -1302,7 +1302,7 @@ class _HomePageState extends State<HomePage> {
                                                   });
                                                 }
                                               } else {
-                                                // Back to Device 11
+                                                // Back to Device 1
                                                 setState(() {
                                                   selectedDevice = devices
                                                       .cast<
@@ -1312,7 +1312,7 @@ class _HomePageState extends State<HomePage> {
                                                           (d) =>
                                                               d["DeviceId"]
                                                                   .toString() ==
-                                                              "11",
+                                                              "1",
                                                           orElse: () =>
                                                               devices.first);
                                                   errorMessage = null;
@@ -1321,7 +1321,7 @@ class _HomePageState extends State<HomePage> {
                                             },
                                             child: selectedDevice?["DeviceId"]
                                                         .toString() ==
-                                                    "11"
+                                                    "1"
                                                 ? const Text(
                                                     "Check Nearest Device",
                                                     style: TextStyle(
