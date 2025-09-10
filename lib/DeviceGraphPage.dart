@@ -11519,7 +11519,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   isShiftPressed) {}
                             },
                             child: SfCartesianChart(
-                              annotations: annotations, // Add this for arrows
+                              // annotations: annotations, // Add this for arrows
                               plotAreaBackgroundColor: isDarkMode
                                   ? Color.fromARGB(100, 0, 0, 0)
                                   : Color.fromARGB(189, 222, 218, 218),
