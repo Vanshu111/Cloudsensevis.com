@@ -137,7 +137,7 @@ class _HomePageState extends State<HomePage> {
         print('Failed to load device data. Status: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error fetching device data: $e');
+      // print('Error fetching device data: $e');
     }
   }
 
@@ -433,7 +433,7 @@ class _HomePageState extends State<HomePage> {
         if (devices.isEmpty) {
           if (mounted) {
             setState(() {
-              // errorMessage = "No devices found.";
+              errorMessage = "No devices found.";
               isLoading = false;
             });
           }
@@ -548,7 +548,7 @@ class _HomePageState extends State<HomePage> {
         setState(() {
           nearestDevice = nearest;
           selectedDevice = nearestDevice;
-          // errorMessage = null;
+          errorMessage = null;
         });
       }
       return true;
@@ -741,9 +741,7 @@ class _HomePageState extends State<HomePage> {
               0, // NEW: disables the lighter overlay effect when scrolled
           surfaceTintColor: Colors.transparent, // prevents automatic tint
           iconTheme: IconThemeData(
-            color: isDarkMode
-                ? const Color.fromARGB(255, 212, 39, 39)
-                : Colors.black,
+            color: isDarkMode ? Colors.white : Colors.black,
           ),
           backgroundColor: isDarkMode ? Colors.blueGrey[900] : Colors.white,
           toolbarHeight: 70,
@@ -768,7 +766,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       'Cloud Sense Vis',
                       style: TextStyle(
-                        color: isDarkMode ? Colors.white : Colors.black,
+                        color: isDarkMode ? Colors.red : Colors.black,
                         fontWeight: FontWeight.bold,
                         fontSize: screenWidth < 800
                             ? 20
