@@ -741,7 +741,9 @@ class _HomePageState extends State<HomePage> {
               0, // NEW: disables the lighter overlay effect when scrolled
           surfaceTintColor: Colors.transparent, // prevents automatic tint
           iconTheme: IconThemeData(
-            color: isDarkMode ? Colors.white : Colors.black,
+            color: isDarkMode
+                ? const Color.fromARGB(255, 212, 39, 39)
+                : Colors.black,
           ),
           backgroundColor: isDarkMode ? Colors.blueGrey[900] : Colors.white,
           toolbarHeight: 70,
