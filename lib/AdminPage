@@ -14,9 +14,11 @@ class AdminPage extends StatefulWidget {
 
   @override
   State<AdminPage> createState() => _AdminPageState();
-}double getResponsiveFontSize(BuildContext context, double mobileSize, double desktopSize) {
+}
+
+double getResponsiveFontSize(BuildContext context, double mobileSize, double desktopSize) {
   final width = MediaQuery.of(context).size.width;
-  return width <= 600 ? mobileSize :desktopSize;
+  return width <= 600 ? mobileSize : desktopSize;
 }
 
 class _AdminPageState extends State<AdminPage> {
@@ -36,8 +38,7 @@ class _AdminPageState extends State<AdminPage> {
   String searchQuery = "";
   List<Map<String, String>> users = [];
   bool isUsersLoading = true;
-  Map<String, String> anomalies = {};
-  List<String> seenAnomalies = [];
+  Map<String, Map<String, String>> latestAnomalies = {};
   List<Map<String, String>> notifications = [];
   List<Map<String, String>> dismissedNotifications = [];
   Timer? _anomalyTimer;
@@ -45,7 +46,6 @@ class _AdminPageState extends State<AdminPage> {
 
   int devicesToShow = 4; // start with 4 devices
   int usersToShow = 4;   // start with 4 users
-
 
   @override
   void initState() {
@@ -101,97 +101,122 @@ class _AdminPageState extends State<AdminPage> {
       },
     );
   }
-Future<void> fetchAnomalies() async {
-  final newNotifications = <Map<String, String>>[];
-  final failedDevices = <String, int>{}; // Track failed attempts per device
 
-  for (final d in allDevices) {
-    final deviceId = d['DeviceId'] ?? "";
-    final topic = d['Topic'] ?? "Unknown";
-    if (deviceId.isEmpty || !topic.contains('WS/Campus')) continue;
-    final deviceIdTopic = "$deviceId#$topic";
+  Future<void> fetchAnomalies() async {
+    final newNotifications = <Map<String, String>>[];
+    final failedDevices = <String, int>{}; // Track failed attempts per device
+    const int batchSize = 10;
+    final devicesToFetch = allDevices.where((d) {
+      final deviceId = d['DeviceId'] ?? "";
+      final topic = d['Topic'] ?? "Unknown";
+      return deviceId.isNotEmpty && topic.contains('WS/Campus');
+    }).toList();
 
-    // Initialize failure count if not exists
-    failedDevices[deviceId] = failedDevices[deviceId] ?? 0;
+    for (int i = 0; i < devicesToFetch.length; i += batchSize) {
+      final end = (i + batchSize < devicesToFetch.length) ? i + batchSize : devicesToFetch.length;
+      final batch = devicesToFetch.sublist(i, end);
 
-    // Skip devices with too many failures (e.g., 5 failed attempts)
-    if (failedDevices[deviceId]! >= 5) {
-      if (kDebugMode) {
-        print("Skipping device $deviceId due to repeated failures");
-      }
-      continue;
-    }
+      await Future.wait(batch.map((d) async {
+        final deviceId = d['DeviceId'] ?? "";
+        final topic = d['Topic'] ?? "Unknown";
+        final deviceIdTopic = "$deviceId#$topic";
 
-    try {
-      final response = await http.get(Uri.parse("$flaggingApiUrl?DeviceID=$deviceId")).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException("Request to $flaggingApiUrl timed out for device $deviceId");
-        },
-      );
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        failedDevices[deviceId] = 0; // Reset failure count on success
-        if (data is List && data.isNotEmpty) {
-          for (final item in data) {
-            final anomaly = item['Anomaly']?.toString() ?? "";
-            final timestamp = item['Timestamp']?.toString() ?? "N/A";
-            if (anomaly.isNotEmpty) {
-              final isAlreadyNotified = notifications.any(
-                (n) => n['deviceIdTopic'] == deviceIdTopic && n['timestamp'] == timestamp,
-              );
-              final isDismissed = dismissedNotifications.any(
-                (dn) => dn['deviceIdTopic'] == deviceIdTopic && dn['timestamp'] == timestamp,
-              );
-              if (!isAlreadyNotified && !isDismissed) {
-                final message = _buildNotificationMessage(deviceIdTopic, anomaly, timestamp);
-                newNotifications.add({
-                  'deviceIdTopic': deviceIdTopic,
-                  'message': message,
-                  'anomaly': anomaly,
-                  'timestamp': timestamp,
-                });
-                final uniqueId = "$deviceIdTopic#$timestamp";
-                _showNotification(uniqueId, message);
+        failedDevices[deviceId] = failedDevices[deviceId] ?? 0;
+
+        if (failedDevices[deviceId]! >= 5) {
+          if (kDebugMode) {
+            print("Skipping device $deviceId due to repeated failures");
+          }
+          return;
+        }
+
+        try {
+          final response = await http.get(Uri.parse("$flaggingApiUrl?DeviceID=$deviceId")).timeout(
+            const Duration(seconds: 90),
+            onTimeout: () {
+              throw TimeoutException("Request to $flaggingApiUrl timed out for device $deviceId");
+            },
+          );
+          if (response.statusCode == 200) {
+            failedDevices[deviceId] = 0; // Reset failure count on success
+            final data = json.decode(response.body);
+            if (data is List && data.isNotEmpty) {
+              // Find the latest item
+              Map<String, dynamic> latestItem = data.reduce((curr, next) {
+                final dtCurr = parseDate(curr['Timestamp']?.toString()) ?? DateTime(0);
+                final dtNext = parseDate(next['Timestamp']?.toString()) ?? DateTime(0);
+                return dtCurr.isAfter(dtNext) ? curr : next;
+              });
+              final anomaly = latestItem['Anomaly']?.toString() ?? "";
+              final timestamp = latestItem['Timestamp']?.toString() ?? "";
+              if (anomaly.isNotEmpty) {
+                final currentLatest = latestAnomalies[deviceIdTopic];
+                bool isNewOrUpdated = true;
+                if (currentLatest != null && currentLatest['timestamp'] == timestamp) {
+                  isNewOrUpdated = false;
+                }
+                if (isNewOrUpdated) {
+                  latestAnomalies[deviceIdTopic] = {
+                    'anomaly': anomaly,
+                    'timestamp': timestamp,
+                  };
+                  final isAlreadyNotified = notifications.any(
+                    (n) => n['deviceIdTopic'] == deviceIdTopic && n['timestamp'] == timestamp,
+                  );
+                  final isDismissed = dismissedNotifications.any(
+                    (dn) => dn['deviceIdTopic'] == deviceIdTopic && dn['timestamp'] == timestamp,
+                  );
+                  if (!isAlreadyNotified && !isDismissed) {
+                    final message = _buildNotificationMessage(deviceIdTopic, anomaly, timestamp);
+                    newNotifications.add({
+                      'deviceIdTopic': deviceIdTopic,
+                      'message': message,
+                      'anomaly': anomaly,
+                      'timestamp': timestamp,
+                    });
+                    final uniqueId = "$deviceIdTopic#$timestamp";
+                    _showNotification(uniqueId, message);
+                  }
+                }
               }
             }
+          } else {
+            failedDevices[deviceId] = failedDevices[deviceId]! + 1;
+            if (kDebugMode) {
+              print("Flagging API error for $deviceId: ${response.statusCode}");
+            }
+          }
+        } catch (e) {
+          failedDevices[deviceId] = failedDevices[deviceId]! + 1;
+          if (kDebugMode) {
+            print("Flagging API Exception for $deviceId: $e");
+          }
+          if (failedDevices[deviceId]! >= 5) {
+            _toast("Persistent error fetching anomalies for device $deviceId. Skipping further attempts.");
           }
         }
-      } else {
-        failedDevices[deviceId] = failedDevices[deviceId]! + 1;
-        if (kDebugMode) {
-          print("Flagging API error for $deviceId: ${response.statusCode}");
-        }
-      }
-    } catch (e) {
-      failedDevices[deviceId] = failedDevices[deviceId]! + 1;
-      if (kDebugMode) {
-        print("Flagging API Exception for $deviceId: $e");
-      }
-      if (failedDevices[deviceId]! >= 5) {
-        _toast("Persistent error fetching anomalies for device $deviceId. Skipping further attempts.");
-      }
+      }));
+    }
+
+    if (newNotifications.isNotEmpty) {
+      setState(() {
+        notifications.addAll(newNotifications);
+        notifications.sort((a, b) {
+          final da = parseDate(a['timestamp']) ?? DateTime(0);
+          final db = parseDate(b['timestamp']) ?? DateTime(0);
+          return db.compareTo(da); // Sort newest first
+        });
+      });
+      await _savePrefs();
+    } else {
+      setState(() {});
+    }
+    if (kDebugMode) {
+      print("Notifications: $notifications");
+      print("Failed devices: $failedDevices");
     }
   }
 
-  if (newNotifications.isNotEmpty) {
-    setState(() {
-      notifications.addAll(newNotifications);
-      notifications.sort((a, b) {
-        final da = parseDate(a['timestamp']) ?? DateTime(0);
-        final db = parseDate(b['timestamp']) ?? DateTime(0);
-        return db.compareTo(da); // Sort newest first
-      });
-    });
-    await _savePrefs();
-  } else {
-    setState(() {});
-  }
-  if (kDebugMode) {
-    print("Notifications: $notifications");
-    print("Failed devices: $failedDevices");
-  }
-}
   String _buildNotificationMessage(String deviceIdTopic, String anomaly, String timestamp) {
     final deviceId = deviceIdTopic.split('#')[0];
     final topic = deviceIdTopic.split('#').length > 1 ? deviceIdTopic.split('#')[1] : "Unknown";
@@ -378,10 +403,28 @@ Future<void> fetchAnomalies() async {
                         "Notifications (${notifications.length})",
                         style: TextStyle(color: strong, fontSize: 16, fontWeight: FontWeight.w800),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: subtle),
-                        onPressed: () => Navigator.pop(dialogContext),
-                        tooltip: 'Close',
+                      Row(
+                        children: [
+                          if (notifications.isNotEmpty)
+                            IconButton(
+                              icon: Icon(Icons.delete_sweep, color: Colors.red),
+                              onPressed: () {
+                                dialogSetState(() {
+                                  notifications.clear();
+                                });
+                                _savePrefs();
+                                if (!kIsWeb) {
+                                  _notificationsPlugin?.cancelAll();
+                                }
+                              },
+                              tooltip: 'Clear All',
+                            ),
+                          IconButton(
+                            icon: Icon(Icons.close, color: subtle),
+                            onPressed: () => Navigator.pop(dialogContext),
+                            tooltip: 'Close',
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -547,6 +590,93 @@ Future<void> fetchAnomalies() async {
         },
       ),
     );
+  }
+
+  Future<void> _showHistory(String deviceId, String topic) async {
+    try {
+      final response = await http.get(Uri.parse("$flaggingApiUrl?DeviceID=$deviceId")).timeout(
+        const Duration(seconds: 90),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is List) {
+          final now = DateTime.now();
+          var recent = data.map((item) => item as Map<String, dynamic>).where((item) {
+            final dt = parseDate(item['Timestamp']?.toString());
+            return dt != null && now.difference(dt).inHours <= 24;
+          }).toList();
+          recent.sort((a, b) {
+            final da = parseDate(a['Timestamp']?.toString()) ?? DateTime(0);
+            final db = parseDate(b['Timestamp']?.toString()) ?? DateTime(0);
+            return da.compareTo(db); // ascending
+          });
+
+          final List<Map<String, String>> grouped = [];
+          if (recent.isNotEmpty) {
+            String start = recent[0]['Timestamp']?.toString() ?? '';
+            String end = start;
+            String anomaly = recent[0]['Anomaly']?.toString() ?? '';
+            for (int i = 1; i < recent.length; i++) {
+              final currAnomaly = recent[i]['Anomaly']?.toString() ?? '';
+              final currTs = recent[i]['Timestamp']?.toString() ?? '';
+              if (currAnomaly == anomaly) {
+                end = currTs;
+              } else {
+                String period = (start == end) ? "at $start" : "from $start to $end";
+                grouped.add({
+                  'anomaly': anomaly,
+                  'period': period,
+                });
+                start = currTs;
+                end = currTs;
+                anomaly = currAnomaly;
+              }
+            }
+            String period = (start == end) ? "at $start" : "from $start to $end";
+            grouped.add({
+              'anomaly': anomaly,
+              'period': period,
+            });
+          }
+
+          final mapped = _mapCategoryAndPrefix(topic);
+          final sensorName = mapped.prefix.isNotEmpty ? "${mapped.prefix}${deviceId.padLeft(3, '0')}" : deviceId;
+
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: Text("Past 24 Hours Anomalies for $sensorName"),
+              content: grouped.isEmpty
+                  ? const Text("No anomalies in the past 24 hours.")
+                  : SizedBox(
+                      width: double.maxFinite,
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: grouped.length,
+                        itemBuilder: (_, i) {
+                          final g = grouped[i];
+                          return ListTile(
+                            title: Text(g['anomaly']!),
+                            subtitle: Text(g['period']!),
+                          );
+                        },
+                      ),
+                    ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Close"),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        _toast("Failed to fetch history: ${response.statusCode}");
+      }
+    } catch (e) {
+      _toast("Error fetching history: $e");
+    }
   }
 
   Future<void> fetchDevices() async {
@@ -830,7 +960,7 @@ Future<void> fetchAnomalies() async {
             final fullDeviceIdTopic = "$deviceId#$deviceIdTopic";
             dialogSetState(() {
               notifications.removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
-              anomalies.remove(fullDeviceIdTopic);
+              latestAnomalies.remove(fullDeviceIdTopic);
               dismissedNotifications.removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
             });
             if (!kIsWeb) {
@@ -852,7 +982,7 @@ Future<void> fetchAnomalies() async {
             final fullDeviceIdTopic = "$deviceId#$deviceIdTopic";
             dialogSetState(() {
               notifications.removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
-              anomalies.remove(fullDeviceIdTopic);
+              latestAnomalies.remove(fullDeviceIdTopic);
               dismissedNotifications.removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
             });
             if (!kIsWeb) {
@@ -1148,7 +1278,7 @@ Future<void> fetchAnomalies() async {
     ];
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -1168,11 +1298,10 @@ Future<void> fetchAnomalies() async {
     final subtle = isDark ? Colors.white70 : Colors.black54;
     final strong = isDark ? Colors.white : Colors.black;
 
-
     return Scaffold(
       backgroundColor: bg.first,
       appBar: AppBar(
-       elevation: 0, // remove shadow
+        elevation: 0, // remove shadow
         scrolledUnderElevation: 0, // NEW: disables the lighter overlay effect when scrolled
         surfaceTintColor: Colors.transparent, // prevents automatic tint
         backgroundColor: bg.first,
@@ -1206,7 +1335,6 @@ Future<void> fetchAnomalies() async {
                       decoration: BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
-                        
                       ),
                       constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                       child: Text(
@@ -1239,7 +1367,6 @@ Future<void> fetchAnomalies() async {
           final int statCrossAxisCount = isMobile ? 1 : isTablet ? 2 : 4;
           final double statChildAspectRatio = isMobile ? 4.0 : isTablet ? 3.3 : 2.9;
           final double padding = isMobile ? 12.0 : isTablet ? 16.0 : 18.0;
-
 
           // Your widget build
           return SingleChildScrollView(
@@ -1298,204 +1425,244 @@ Future<void> fetchAnomalies() async {
                 // Sections
                 Column(
                   children: [
-                  // Devices Section
-                  _SectionCard(
-                    title: "Devices",
-                    cardColor: card,
-                    strong: strong,
-                    subtle: subtle,
-                    child: isLoading
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(24.0),
-                              child: CircularProgressIndicator(),
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              // 🔹 Search field + filter
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _SearchField(
-                                    hint: "Search a device",
-                                    strong: strong,
-                                    subtle: subtle,
-                                    isDark: isDark,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        searchQuery = value.trim();
-                                        devicesToShow = 4;
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(height: 12),
-                                  // ✅ Responsive filter section
-                                  LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final isMobile = constraints.maxWidth < 600;
-
-                                      if (isMobile) {
-                                        // 👉 Dropdown on mobile
-                                        return Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            DropdownButton<String>(
-                                              value: filter,
-                                              items: ["All", "Active", "Inactive"]
-                                                  .map((e) => DropdownMenuItem(
-                                                        value: e,
-                                                        child: Text(e),
-                                                      ))
-                                                  .toList(),
-                                              onChanged: (v) {
-                                                if (v != null) setState(() => filter = v);
-                                              },
-                                            ),
-                                            IconButton(
-                                              tooltip: "Refresh",
-                                              onPressed: () {
-                                                fetchDevices();
-                                                fetchAnomalies();
-                                              },
-                                              icon: Icon(Icons.refresh, color: strong),
-                                            ),
-                                          ],
-                                        );
-                                      } else {
-                                        // 👉 Chips on larger screens
-                                        return Wrap(
-                                          spacing: 8,
-                                          runSpacing: 8,
-                                          crossAxisAlignment: WrapCrossAlignment.center,
-                                          children: [
-                                            _ChipFilter(
-                                              value: filter,
-                                              onChanged: (v) {
-                                                setState(() => filter = v);
-                                              },
-                                              strong: strong,
-                                              subtle: subtle,
-                                              isDark: isDark,
-                                            ),
-                                            IconButton(
-                                              tooltip: "Refresh",
-                                              onPressed: () {
-                                                fetchDevices();
-                                                fetchAnomalies();
-                                              },
-                                              icon: Icon(Icons.refresh, color: strong),
-                                            ),
-                                          ],
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
+                    // Devices Section
+                    _SectionCard(
+                      title: "Devices",
+                      cardColor: card,
+                      strong: strong,
+                      subtle: subtle,
+                      child: isLoading
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(24.0),
+                                child: CircularProgressIndicator(),
                               ),
-                              const SizedBox(height: 20),
-                              const Divider(height: 1),
-                              const SizedBox(height: 8),
-                              if (filteredDevices.isEmpty)
-                                Center(
-                                  child: Text("No devices found", style: TextStyle(color: subtle)),
-                                )
-                              else
+                            )
+                          : Column(
+                              children: [
+                                // 🔹 Search field + filter
                                 Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    ...(filteredDevices.take(devicesToShow).map(
-                                      (d) => Column(
-                                        children: [
-                                          InkWell(
-                                            hoverColor: isDark
-                                                  ? const Color(0xFF2C3E50).withOpacity(0.6) // Dark mode hover
-                                                  : const Color(0xFF5BAA9D).withOpacity(0.9), // Light mode hover
-                                            onTap: () {
-                                              final deviceId = d['DeviceId'] ?? "Unknown";
-                                              final topic = d['Topic'] ?? "Unknown";
-                                              final mapped = _mapCategoryAndPrefix(topic);
-                                              final sensorName = mapped.prefix.isNotEmpty
-                                                  ? "${mapped.prefix}${deviceId.padLeft(3, '0')}"
-                                                  : deviceId;
-                                              final sequentialName = "${mapped.category}";
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) => DeviceGraphPage(
-                                                    deviceName: sensorName,
-                                                    sequentialName: sequentialName,
-                                                    backgroundImagePath: 'assets/backgroundd.jpg',
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                            child: ListTile(
-                                              leading: _StatusDot(
-                                                color: d['isActive'] == true ? Colors.green : Colors.red,
+                                    _SearchField(
+                                      hint: "Search a device",
+                                      strong: strong,
+                                      subtle: subtle,
+                                      isDark: isDark,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          searchQuery = value.trim();
+                                          devicesToShow = 4;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // ✅ Responsive filter section
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final isMobile = constraints.maxWidth < 600;
+
+                                        if (isMobile) {
+                                          // 👉 Dropdown on mobile
+                                          return Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              DropdownButton<String>(
+                                                value: filter,
+                                                items: ["All", "Active", "Inactive"]
+                                                    .map((e) => DropdownMenuItem(
+                                                          value: e,
+                                                          child: Text(e),
+                                                        ))
+                                                    .toList(),
+                                                onChanged: (v) {
+                                                  if (v != null) setState(() => filter = v);
+                                                },
                                               ),
-                                              title: Text(
-                                                "ID: ${d['DeviceId'] != null && d['Topic'] != null ? (_mapCategoryAndPrefix(d['Topic']).prefix.isNotEmpty ? "${_mapCategoryAndPrefix(d['Topic']).prefix}${d['DeviceId'].padLeft(3, '0')}" : d['DeviceId']) : "Unknown"}",
-                                                style: TextStyle(
-                                                  color: strong,
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 14,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
+                                              IconButton(
+                                                tooltip: "Refresh",
+                                                onPressed: () {
+                                                  fetchDevices();
+                                                  fetchAnomalies();
+                                                },
+                                                icon: Icon(Icons.refresh, color: strong),
                                               ),
-                                              subtitle: Text(
-                                                "Name: ${d['Topic'] != null ? _mapCategoryAndPrefix(d['Topic']).category : "Unknown"}\nLast: ${d['lastReceivedTime']}",
-                                                style: TextStyle(
-                                                  color: subtle,
-                                                  fontSize: 12,
-                                                ),
-                                                overflow: TextOverflow.ellipsis,
-                                                maxLines: 2,
+                                            ],
+                                          );
+                                        } else {
+                                          // 👉 Chips on larger screens
+                                          return Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            children: [
+                                              _ChipFilter(
+                                                value: filter,
+                                                onChanged: (v) {
+                                                  setState(() => filter = v);
+                                                },
+                                                strong: strong,
+                                                subtle: subtle,
+                                                isDark: isDark,
                                               ),
-                                              trailing: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  color: (d['isActive'] == true ? Colors.green : Colors.red).withOpacity(.12),
-                                                  borderRadius: BorderRadius.circular(20),
-                                                ),
-                                                child: Text(
-                                                  d['isActive'] == true ? "Active" : "Inactive",
-                                                  style: TextStyle(
-                                                    color: d['isActive'] == true ? Colors.green : Colors.red,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
+                                              IconButton(
+                                                tooltip: "Refresh",
+                                                onPressed: () {
+                                                  fetchDevices();
+                                                  fetchAnomalies();
+                                                },
+                                                icon: Icon(Icons.refresh, color: strong),
                                               ),
-                                            ),
-                                          ),
-                                          Divider(color: subtle.withOpacity(.12)),
-                                        ],
-                                      ),
-                                    )).toList(),
-                                    if (devicesToShow < filteredDevices.length)
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            devicesToShow = (devicesToShow + 4).clamp(0, filteredDevices.length);
-                                          });
-                                        },
-                                        child: const Text("Show More"),
-                                      )
-                                    else if (filteredDevices.length > 4)
-                                      TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            devicesToShow = 4;
-                                          });
-                                        },
-                                        child: const Text("Show Less"),
-                                      ),
+                                            ],
+                                          );
+                                        }
+                                      },
+                                    ),
                                   ],
                                 ),
-                            ],
-                          ),
-                  ),
-
-
+                                const SizedBox(height: 20),
+                                const Divider(height: 1),
+                                const SizedBox(height: 8),
+                                if (filteredDevices.isEmpty)
+                                  Center(
+                                    child: Text("No devices found", style: TextStyle(color: subtle)),
+                                  )
+                                else
+                                  Column(
+                                    children: [
+                                      ...(filteredDevices.take(devicesToShow).map(
+                                        (d) => Column(
+                                          children: [
+                                            InkWell(
+                                              hoverColor: isDark
+                                                  ? const Color(0xFF2C3E50).withOpacity(0.6) // Dark mode hover
+                                                  : const Color(0xFF5BAA9D).withOpacity(0.9), // Light mode hover
+                                              onTap: () {
+                                                final deviceId = d['DeviceId'] ?? "Unknown";
+                                                final topic = d['Topic'] ?? "Unknown";
+                                                final mapped = _mapCategoryAndPrefix(topic);
+                                                final sensorName = mapped.prefix.isNotEmpty
+                                                    ? "${mapped.prefix}${deviceId.padLeft(3, '0')}"
+                                                    : deviceId;
+                                                final sequentialName = "${mapped.category}";
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => DeviceGraphPage(
+                                                      deviceName: sensorName,
+                                                      sequentialName: sequentialName,
+                                                      backgroundImagePath: 'assets/backgroundd.jpg',
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              child: ListTile(
+                                                leading: _StatusDot(
+                                                  color: d['isActive'] == true ? Colors.green : Colors.red,
+                                                ),
+                                                title: Text(
+                                                  "ID: ${d['DeviceId'] != null && d['Topic'] != null ? (_mapCategoryAndPrefix(d['Topic']).prefix.isNotEmpty ? "${_mapCategoryAndPrefix(d['Topic']).prefix}${d['DeviceId'].padLeft(3, '0')}" : d['DeviceId']) : "Unknown"}",
+                                                  style: TextStyle(
+                                                    color: strong,
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 14,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                subtitle: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      "Name: ${d['Topic'] != null ? _mapCategoryAndPrefix(d['Topic']).category : "Unknown"}",
+                                                      style: TextStyle(
+                                                        color: subtle,
+                                                        fontSize: 12,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    Text(
+                                                      "Last: ${d['lastReceivedTime']}",
+                                                      style: TextStyle(
+                                                        color: subtle,
+                                                        fontSize: 12,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    Builder(
+                                                      builder: (context) {
+                                                        final deviceId = d['DeviceId'] ?? "";
+                                                        final topic = d['Topic'] ?? "";
+                                                        final deviceIdTopic = "$deviceId#$topic";
+                                                        final latest = latestAnomalies[deviceIdTopic];
+                                                        if (latest != null) {
+                                                          return Text(
+                                                            "Latest Anomaly: ${latest['anomaly']} at ${latest['timestamp']}",
+                                                            style: TextStyle(
+                                                              color: Colors.orange,
+                                                              fontSize: 12,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          );
+                                                        }
+                                                        return const SizedBox.shrink();
+                                                      },
+                                                    ),
+                                                  ],
+                                                ),
+                                                trailing: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    IconButton(
+                                                      icon: Icon(Icons.history, color: Colors.blue),
+                                                      onPressed: () => _showHistory(d['DeviceId'], d['Topic']),
+                                                      tooltip: 'View Past 24h Anomalies',
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: (d['isActive'] == true ? Colors.green : Colors.red).withOpacity(.12),
+                                                        borderRadius: BorderRadius.circular(20),
+                                                      ),
+                                                      child: Text(
+                                                        d['isActive'] == true ? "Active" : "Inactive",
+                                                        style: TextStyle(
+                                                          color: d['isActive'] == true ? Colors.green : Colors.red,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            Divider(color: subtle.withOpacity(.12)),
+                                          ],
+                                        ),
+                                      )).toList(),
+                                      if (devicesToShow < filteredDevices.length)
+                                        TextButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              devicesToShow = (devicesToShow + 4).clamp(0, filteredDevices.length);
+                                            });
+                                          },
+                                          child: const Text("Show More"),
+                                        )
+                                      else if (filteredDevices.length > 4)
+                                        TextButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              devicesToShow = 4;
+                                            });
+                                          },
+                                          child: const Text("Show Less"),
+                                        ),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                    ),
 
                     // Users Section
                     _SectionCard(
@@ -1530,8 +1697,8 @@ Future<void> fetchAnomalies() async {
                                             children: [
                                               InkWell(
                                                 hoverColor: isDark
-                                                      ? const Color(0xFF2C3E50).withOpacity(0.6) // Dark mode hover
-                                                      : const Color(0xFF5BAA9D).withOpacity(0.9), // Light mode hover
+                                                    ? const Color(0xFF2C3E50).withOpacity(0.6) // Dark mode hover
+                                                    : const Color(0xFF5BAA9D).withOpacity(0.9), // Light mode hover
                                                 onTap: () => _showUserDevices(u["email"]!),
                                                 child: ListTile(
                                                   leading: CircleAvatar(
@@ -1543,8 +1710,7 @@ Future<void> fetchAnomalies() async {
                                                     style: TextStyle(
                                                       color: strong,
                                                       fontWeight: FontWeight.w700,
-                                                          fontSize: getResponsiveFontSize(context, 12, 14), // 👈 mobile=12, pc=14
-
+                                                      fontSize: getResponsiveFontSize(context, 12, 14), // 👈 mobile=12, pc=14
                                                     ),
                                                     overflow: TextOverflow.ellipsis,
                                                     maxLines: 1,
@@ -1553,8 +1719,7 @@ Future<void> fetchAnomalies() async {
                                                     "${u["email"]} • ${u["role"]}",
                                                     style: TextStyle(
                                                       color: subtle,
-                                                           fontSize: getResponsiveFontSize(context, 10, 12), // 👈 mobile=9, pc=10
-
+                                                      fontSize: getResponsiveFontSize(context, 10, 12), // 👈 mobile=9, pc=10
                                                     ),
                                                     overflow: TextOverflow.ellipsis,
                                                     maxLines: 2,
@@ -1622,7 +1787,6 @@ Future<void> fetchAnomalies() async {
               ],
             ),
           );
-
         },
       ),
     );
