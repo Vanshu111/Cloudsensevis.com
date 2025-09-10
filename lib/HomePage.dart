@@ -766,7 +766,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       'Cloud Sense Vis',
                       style: TextStyle(
-                        color: isDarkMode ? Colors.red : Colors.black,
+                        color: isDarkMode ? Colors.white : Colors.black,
                         fontWeight: FontWeight.bold,
                         fontSize: screenWidth < 800
                             ? 20

@@ -234,14 +234,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                   const SizedBox(height: 8),
                   if (_isLoading)
                     const Center(child: CircularProgressIndicator())
-                  else if (_errorMessage != null)
-                    Text(
-                      _errorMessage!,
-                      style: TextStyle(
-                        color: isDarkMode ? Colors.red[300] : Colors.red[700],
-                        fontSize: 14,
-                      ),
-                    )
+                  // else if (_errorMessage != null)
+                  //   Text(
+                  //     _errorMessage!,
+                  //     style: TextStyle(
+                  //       color: isDarkMode ? Colors.red[300] : Colors.red[700],
+                  //       fontSize: 14,
+                  //     ),
+                  //   )
                   else
                     SizedBox(
                       height: 80,
@@ -441,7 +441,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         'Light Intensity':
                             NARLParametersData['LightIntensity'] ?? [],
                         'Wind Speed': NARLParametersData['WindSpeed'] ?? [],
-                        'Atm Pressure': NARLParametersData['AtmPressure'] ?? [],
+                        'Pressure': NARLParametersData['AtmPressure'] ?? [],
                         'Wind Direction':
                             NARLParametersData['WindDirection'] ?? [],
                         'Rainfall': NARLParametersData['RainfallHourly'] ?? [],
@@ -470,7 +470,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             csParametersData['LightIntensity'] ?? [],
                         'Rainfall': csParametersData['RainfallHourly'] ?? [],
                         'Wind Speed': csParametersData['WindSpeed'] ?? [],
-                        'Atm Pressure': csParametersData['AtmPressure'] ?? [],
+                        'Pressure': csParametersData['AtmPressure'] ?? [],
                         'Wind Direction':
                             csParametersData['WindDirection'] ?? [],
                       },
@@ -486,7 +486,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             cfParametersData['LightIntensity'] ?? [],
                         'Rainfall': cfParametersData['RainfallHourly'] ?? [],
                         'Wind Speed': cfParametersData['WindSpeed'] ?? [],
-                        'Atm Pressure': cfParametersData['AtmPressure'] ?? [],
+                        'Pressure': cfParametersData['AtmPressure'] ?? [],
                         'Wind Direction':
                             cfParametersData['WindDirection'] ?? [],
                       },
@@ -517,7 +517,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         'Light Intensity':
                             MYParametersData['LightIntensity'] ?? [],
                         'Wind Speed': MYParametersData['WindSpeed'] ?? [],
-                        'Atm Pressure': MYParametersData['AtmPressure'] ?? [],
+                        'Pressure': MYParametersData['AtmPressure'] ?? [],
                         'Wind Direction':
                             MYParametersData['WindDirection'] ?? [],
                         'Rainfall': MYParametersData['RainfallHourly'] ?? [],
@@ -1223,13 +1223,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         });
       } else {
         setState(() {
-          _errorMessage =
-              'Failed to load device details: HTTP ${response.statusCode}';
+          // _errorMessage =
+          //     'Failed to load device details: HTTP ${response.statusCode}';
         });
       }
     } catch (e) {
       setState(() {
-        _errorMessage = 'Error fetching device details: $e';
+        // _errorMessage = 'Error fetching device details: $e';
       });
     } finally {
       setState(() {
@@ -5320,7 +5320,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     // Handle AtmPressure explicitly to preserve "Atm Pressure"
     if (paramName.toLowerCase().contains('atmpressure')) {
       return {
-        'displayName': 'Atm Pressure',
+        'displayName': 'Pressure',
         'unit': 'hPa',
       };
     }
@@ -5586,7 +5586,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
         'WindSpeed': 'Wind Speed',
-        'AtmPressure': 'Atm Pressure',
+        'AtmPressure': 'Pressure',
         'WindDirection': 'Wind Direction',
         'RainfallHourly': 'Rainfall'
       };
@@ -5609,7 +5609,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'mm';
         else if (label == 'Wind Speed')
           unit = 'm/s';
-        else if (label == 'Atm Pressure')
+        else if (label == 'Pressure')
           unit = 'hpa';
         else if (label == 'Wind Direction') unit = '°';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
@@ -5649,7 +5649,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'mm';
         else if (label == 'Wind Speed')
           unit = 'm/s';
-        else if (label == 'Atm Pressure')
+        else if (label == 'Pressure')
           unit = 'hpa';
         else if (label == 'Salinity')
           unit = 'mg/L'; // parts per thousand (common for salinity)
@@ -5677,7 +5677,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
         'WindSpeed': 'Wind Speed',
-        'AtmPressure': 'Atm Pressure',
+        'AtmPressure': 'Pressure',
         'WindDirection': 'Wind Direction',
         'RainfallHourly': 'Rainfall'
       };
@@ -5700,7 +5700,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'mm';
         else if (label == 'Wind Speed')
           unit = 'm/s';
-        else if (label == 'Atm Pressure')
+        else if (label == 'Pressure')
           unit = 'hpa';
         else if (label == 'Wind Direction') unit = '°';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
@@ -5747,7 +5747,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'LightIntensity': 'Light Intensity',
         'RainfallHourly': 'Rainfall',
         'WindSpeed': 'Wind Speed',
-        'AtmPressure': 'Atm Pressure',
+        'AtmPressure': 'Pressure',
         'WindDirection': 'Wind Direction'
       };
       List<String> includedParameters = parameterLabels.keys.toList();
@@ -5769,7 +5769,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'mm';
         else if (label == 'Wind Speed')
           unit = 'm/s';
-        else if (label == 'Atm Pressure')
+        else if (label == 'Pressure')
           unit = 'hpa';
         else if (label == 'Wind Direction') unit = '°';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
@@ -5786,7 +5786,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'LightIntensity': 'Light Intensity',
         'RainfallHourly': 'Rainfall',
         'WindSpeed': 'Wind Speed',
-        'AtmPressure': 'Atm Pressure',
+        'AtmPressure': 'Pressure',
         'WindDirection': 'Wind Direction'
       };
       List<String> includedParameters = parameterLabels.keys.toList();
@@ -5808,7 +5808,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'mm';
         else if (label == 'Wind Speed')
           unit = 'm/s';
-        else if (label == 'Atm Pressure')
+        else if (label == 'Pressure')
           unit = 'hpa';
         else if (label == 'Wind Direction') unit = '°';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
@@ -6225,15 +6225,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                       const SizedBox(height: 8),
                       if (_isLoading)
                         const Center(child: CircularProgressIndicator())
-                      else if (_errorMessage != null)
-                        Text(
-                          _errorMessage!,
-                          style: TextStyle(
-                            color:
-                                isDarkMode ? Colors.red[300] : Colors.red[700],
-                            fontSize: 14,
-                          ),
-                        )
+                      // else if (_errorMessage != null)
+                      //   Text(
+                      //     _errorMessage!,
+                      //     style: TextStyle(
+                      //       color:
+                      //           isDarkMode ? Colors.red[300] : Colors.red[700],
+                      //       fontSize: 14,
+                      //     ),
+                      //   )
                       else
                         Builder(
                           builder: (context) {
@@ -6483,10 +6483,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Wind Speed': NARLParametersData[
                                                       'WindSpeed'] ??
                                                   [],
-                                              'Atm Pressure':
-                                                  NARLParametersData[
-                                                          'AtmPressure'] ??
-                                                      [],
+                                              'Pressure': NARLParametersData[
+                                                      'AtmPressure'] ??
+                                                  [],
                                               'Wind Direction':
                                                   NARLParametersData[
                                                           'WindDirection'] ??
@@ -6543,7 +6542,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Wind Speed': MYParametersData[
                                                       'WindSpeed'] ??
                                                   [],
-                                              'Atm Pressure': MYParametersData[
+                                              'Pressure': MYParametersData[
                                                       'AtmPressure'] ??
                                                   [],
                                               'Wind Direction':
@@ -6594,7 +6593,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Wind Speed': cfParametersData[
                                                       'WindSpeed'] ??
                                                   [],
-                                              'Atm Pressure': cfParametersData[
+                                              'Pressure': cfParametersData[
                                                       'AtmPressure'] ??
                                                   [],
                                               'Wind Direction':
@@ -6623,7 +6622,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Wind Speed': csParametersData[
                                                       'WindSpeed'] ??
                                                   [],
-                                              'Atm Pressure': csParametersData[
+                                              'Pressure': csParametersData[
                                                       'AtmPressure'] ??
                                                   [],
                                               'Wind Direction':
