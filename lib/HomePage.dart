@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cloud_sense_webapp/devicelocationinfo.dart';
+import 'package:cloud_sense_webapp/footer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -2250,6 +2251,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
+                  Footer(),
                 ],
               ),
             )
@@ -2660,7 +2662,9 @@ class _HomePageState extends State<HomePage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+             
                   ],
+                  
                 ),
               ),
             ),

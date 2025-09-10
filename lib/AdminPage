@@ -1819,10 +1819,10 @@ void _showDeviceNotificationsDialog(BuildContext dialogContext, String deviceIdT
     style: TextStyle(
       color: strong,
       fontWeight: FontWeight.w700,
-      fontSize: getResponsiveFontSize(context, 10, 14),
+      fontSize: getResponsiveFontSize(context, 12, 14),
     ),
     overflow: TextOverflow.ellipsis,
-    maxLines: 1,
+    maxLines: 2,
   ),
   trailing: Row(
     mainAxisSize: MainAxisSize.min,
