@@ -187,17 +187,8 @@ Future<void> manageNotificationSubscription() async {
   String? email = prefs.getString('email');
   FirebaseMessaging messaging = FirebaseMessaging.instance;
 
-  if (email == null) {
-    print("No user logged in. Skipping notification subscriptions.");
-    return;
-  }
-
   try {
     String? token = await messaging.getToken();
-    if (token == null) {
-      print("Failed to retrieve FCM token.");
-      return;
-    }
 
     print("User logged in: $email");
     print("FCM Token: $token");
@@ -206,7 +197,7 @@ Future<void> manageNotificationSubscription() async {
       print("GPS notifications allowed for this user.");
       bool? isGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
       if (isGpsSubscribed != true) {
-        await subscribeToGpsSnsTopic(token);
+        await subscribeToGpsSnsTopic(token!);
         await prefs.setBool('isGpsTokenSubscribed', true);
       } else {
         print("Already subscribed to GPS SNS topic.");
@@ -214,14 +205,14 @@ Future<void> manageNotificationSubscription() async {
       // Ensure anomaly is unsubscribed for this user
       bool? wasAnomalySubscribed = prefs.getBool('isAnomalyTokenSubscribed');
       if (wasAnomalySubscribed == true) {
-        await unsubscribeFromSnsTopic(token);
+        await unsubscribeFromSnsTopic(token!);
         await prefs.remove('isAnomalyTokenSubscribed');
       }
-    } else if (adminEmails.contains(email.trim().toLowerCase())) {
+    } else if (adminEmails.contains(email!.trim().toLowerCase())) {
       print("Anomaly notifications allowed for admin user.");
       bool? isAnomalySubscribed = prefs.getBool('isAnomalyTokenSubscribed');
       if (isAnomalySubscribed != true) {
-        await subscribeToSnsTopic(token);
+        await subscribeToSnsTopic(token!);
         await prefs.setBool('isAnomalyTokenSubscribed', true);
       } else {
         print("Already subscribed to anomaly SNS topic.");
@@ -229,7 +220,7 @@ Future<void> manageNotificationSubscription() async {
       // Ensure GPS is unsubscribed for admin users
       bool? isGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
       if (isGpsSubscribed == true) {
-        await unsubscribeFromGpsSnsTopic(token);
+        await unsubscribeFromGpsSnsTopic(token!);
         await prefs.remove('isGpsTokenSubscribed');
       }
     } else {
@@ -237,13 +228,13 @@ Future<void> manageNotificationSubscription() async {
           "User is not an admin. Unsubscribing from anomaly notifications if previously subscribed.");
       bool? wasAnomalySubscribed = prefs.getBool('isAnomalyTokenSubscribed');
       if (wasAnomalySubscribed == true) {
-        await unsubscribeFromSnsTopic(token);
+        await unsubscribeFromSnsTopic(token!);
         await prefs.remove('isAnomalyTokenSubscribed');
       }
       // Ensure GPS is unsubscribed for non-authorized users
       bool? isGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
       if (isGpsSubscribed == true) {
-        await unsubscribeFromGpsSnsTopic(token);
+        await unsubscribeFromGpsSnsTopic(token!);
         await prefs.remove('isGpsTokenSubscribed');
       }
     }
@@ -269,12 +260,7 @@ Future<void> subscribeToSnsTopic(String fcmToken) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   String? email = prefs.getString('email');
 
-  if (email == null) {
-    print("User is not logged in. Skipping anomaly SNS subscription.");
-    return;
-  }
-
-  if (!isAdminUser(email)) {
+  if (!isAdminUser(email!)) {
     print("User is not an admin. Skipping anomaly SNS subscription.");
     return;
   }

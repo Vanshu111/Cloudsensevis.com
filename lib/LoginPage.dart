@@ -59,46 +59,44 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('email', email);
         String? token = await FirebaseMessaging.instance.getToken();
-        if (token != null) {
-          if (email.trim().toLowerCase() == "05agriculture.05@gmail.com") {
-            print("Subscribing $email to GPS SNS topic in _checkCurrentUser.");
-            await subscribeToGpsSnsTopic(token);
-            await prefs.setBool('isGpsTokenSubscribed', true);
-            bool? wasAnomalySubscribed =
-                prefs.getBool('isAnomalyTokenSubscribed');
-            if (wasAnomalySubscribed == true) {
-              await unsubscribeFromSnsTopic(token);
-              await prefs.remove('isAnomalyTokenSubscribed');
-            }
-            Navigator.pushReplacementNamed(context, '/deviceinfo');
-          } else if (adminEmails.contains(email.trim().toLowerCase())) {
-            print(
-                "Subscribing $email to anomaly SNS topic in _checkCurrentUser.");
-            await subscribeToSnsTopic(token);
-            await prefs.setBool('isAnomalyTokenSubscribed', true);
-            bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
-            if (wasGpsSubscribed == true) {
-              await unsubscribeFromGpsSnsTopic(token);
-              await prefs.remove('isGpsTokenSubscribed');
-            }
-            print("Navigating to /admin for $email in _checkCurrentUser");
-            Navigator.pushReplacementNamed(context, '/admin');
-          } else {
-            bool? wasAnomalySubscribed =
-                prefs.getBool('isAnomalyTokenSubscribed');
-            if (wasAnomalySubscribed == true) {
-              await unsubscribeFromSnsTopic(token);
-              await prefs.remove('isAnomalyTokenSubscribed');
-            }
-            bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
-            if (wasGpsSubscribed == true) {
-              await unsubscribeFromGpsSnsTopic(token);
-              await prefs.remove('isGpsTokenSubscribed');
-            }
-            Navigator.pushReplacementNamed(context, '/devicelist');
+        if (email.trim().toLowerCase() == "05agriculture.05@gmail.com") {
+          print("Subscribing $email to GPS SNS topic in _checkCurrentUser.");
+          await subscribeToGpsSnsTopic(token!);
+          await prefs.setBool('isGpsTokenSubscribed', true);
+          bool? wasAnomalySubscribed =
+              prefs.getBool('isAnomalyTokenSubscribed');
+          if (wasAnomalySubscribed == true) {
+            await unsubscribeFromSnsTopic(token!);
+            await prefs.remove('isAnomalyTokenSubscribed');
           }
+          Navigator.pushReplacementNamed(context, '/deviceinfo');
+        } else if (adminEmails.contains(email.trim().toLowerCase())) {
+          print(
+              "Subscribing $email to anomaly SNS topic in _checkCurrentUser.");
+          await subscribeToSnsTopic(token!);
+          await prefs.setBool('isAnomalyTokenSubscribed', true);
+          bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
+          if (wasGpsSubscribed == true) {
+            await unsubscribeFromGpsSnsTopic(token!);
+            await prefs.remove('isGpsTokenSubscribed');
+          }
+          print("Navigating to /admin for $email in _checkCurrentUser");
+          Navigator.pushReplacementNamed(context, '/admin');
+        } else {
+          bool? wasAnomalySubscribed =
+              prefs.getBool('isAnomalyTokenSubscribed');
+          if (wasAnomalySubscribed == true) {
+            await unsubscribeFromSnsTopic(token!);
+            await prefs.remove('isAnomalyTokenSubscribed');
+          }
+          bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
+          if (wasGpsSubscribed == true) {
+            await unsubscribeFromGpsSnsTopic(token!);
+            await prefs.remove('isGpsTokenSubscribed');
+          }
+          Navigator.pushReplacementNamed(context, '/devicelist');
         }
-      }
+            }
     } catch (_) {
       // Not signed in — stay on SignInSignUpScreen
     }
@@ -145,47 +143,43 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
 
         // 🔹 Get FCM Token and subscribe to appropriate SNS topic
         String? token = await FirebaseMessaging.instance.getToken();
-        if (token != null) {
-          if (email == "05agriculture.05@gmail.com") {
-            print("Subscribing $email to GPS SNS topic.");
-            await subscribeToGpsSnsTopic(token);
-            await prefs.setBool('isGpsTokenSubscribed', true);
-            // Ensure anomaly is unsubscribed for this user
-            bool? wasAnomalySubscribed =
-                prefs.getBool('isAnomalyTokenSubscribed');
-            if (wasAnomalySubscribed == true) {
-              await unsubscribeFromSnsTopic(token);
-              await prefs.remove('isAnomalyTokenSubscribed');
-            }
-          } else if (adminEmails.contains(email)) {
-            print("Subscribing $email to anomaly SNS topic.");
-            await subscribeToSnsTopic(token);
-            await prefs.setBool('isAnomalyTokenSubscribed', true);
-            // Ensure GPS is unsubscribed for admin users
-            bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
-            if (wasGpsSubscribed == true) {
-              await unsubscribeFromGpsSnsTopic(token);
-              await prefs.remove('isGpsTokenSubscribed');
-            }
-          } else {
-            // Ensure both anomaly and GPS are unsubscribed for non-authorized users
-            bool? wasAnomalySubscribed =
-                prefs.getBool('isAnomalyTokenSubscribed');
-            if (wasAnomalySubscribed == true) {
-              await unsubscribeFromSnsTopic(token);
-              await prefs.remove('isAnomalyTokenSubscribed');
-            }
-            bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
-            if (wasGpsSubscribed == true) {
-              await unsubscribeFromGpsSnsTopic(token);
-              await prefs.remove('isGpsTokenSubscribed');
-            }
+        if (email == "05agriculture.05@gmail.com") {
+          print("Subscribing $email to GPS SNS topic.");
+          await subscribeToGpsSnsTopic(token!);
+          await prefs.setBool('isGpsTokenSubscribed', true);
+          // Ensure anomaly is unsubscribed for this user
+          bool? wasAnomalySubscribed =
+              prefs.getBool('isAnomalyTokenSubscribed');
+          if (wasAnomalySubscribed == true) {
+            await unsubscribeFromSnsTopic(token);
+            await prefs.remove('isAnomalyTokenSubscribed');
           }
-          print("✅ Subscription handling completed after login.");
+        } else if (adminEmails.contains(email)) {
+          print("Subscribing $email to anomaly SNS topic.");
+          await subscribeToSnsTopic(token!);
+          await prefs.setBool('isAnomalyTokenSubscribed', true);
+          // Ensure GPS is unsubscribed for admin users
+          bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
+          if (wasGpsSubscribed == true) {
+            await unsubscribeFromGpsSnsTopic(token!);
+            await prefs.remove('isGpsTokenSubscribed');
+          }
         } else {
-          print("⚠ FCM Token not available at login.");
+          // Ensure both anomaly and GPS are unsubscribed for non-authorized users
+          bool? wasAnomalySubscribed =
+              prefs.getBool('isAnomalyTokenSubscribed');
+          if (wasAnomalySubscribed == true) {
+            await unsubscribeFromSnsTopic(token!);
+            await prefs.remove('isAnomalyTokenSubscribed');
+          }
+          bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
+          if (wasGpsSubscribed == true) {
+            await unsubscribeFromGpsSnsTopic(token!);
+            await prefs.remove('isGpsTokenSubscribed');
+          }
         }
-        // ✅ Navigate based on specific user
+        print("✅ Subscription handling completed after login.");
+              // ✅ Navigate based on specific user
         if (email == "05agriculture.05@gmail.com") {
           print("Navigating to /deviceinfo for $email");
           Navigator.pushReplacementNamed(context, '/deviceinfo');
@@ -537,20 +531,18 @@ class _SignInSignUpScreenState extends State<SignInSignUpScreen> {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString('email', _emailToVerify!);
       String? token = await FirebaseMessaging.instance.getToken();
-      if (token != null) {
-        if (adminEmails.contains(_emailToVerify!.trim().toLowerCase())) {
-          print(
-              "Subscribing $_emailToVerify to anomaly SNS topic after sign-up.");
-          await subscribeToSnsTopic(token);
-          await prefs.setBool('isAnomalyTokenSubscribed', true);
-        }
-        bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
-        if (wasGpsSubscribed == true) {
-          await unsubscribeFromGpsSnsTopic(token);
-          await prefs.remove('isGpsTokenSubscribed');
-        }
+      if (adminEmails.contains(_emailToVerify!.trim().toLowerCase())) {
+        print(
+            "Subscribing $_emailToVerify to anomaly SNS topic after sign-up.");
+        await subscribeToSnsTopic(token!);
+        await prefs.setBool('isAnomalyTokenSubscribed', true);
       }
-
+      bool? wasGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
+      if (wasGpsSubscribed == true) {
+        await unsubscribeFromGpsSnsTopic(token!);
+        await prefs.remove('isGpsTokenSubscribed');
+      }
+    
       setState(() {
         _isSignIn = true;
       });

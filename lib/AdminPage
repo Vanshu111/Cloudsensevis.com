@@ -420,241 +420,301 @@ class _AdminPageState extends State<AdminPage> {
     _savePrefs();
   }
 
-  void _showNotificationsDialog() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final subtle = isDark ? Colors.white70 : Colors.black54;
-    final strong = isDark ? Colors.white : Colors.black;
+void _showNotificationsDialog() {
+  final theme = Theme.of(context);
+  final isDark = theme.brightness == Brightness.dark;
+  final subtle = isDark ? Colors.white70 : Colors.black54;
+  final strong = isDark ? Colors.white : Colors.black;
 
-    showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (dialogContext, dialogSetState) {
-          final ScrollController scrollController = ScrollController();
+  showDialog(
+    context: context,
+    builder: (_) => StatefulBuilder(
+      builder: (dialogContext, dialogSetState) {
+        final ScrollController scrollController = ScrollController();
 
-          Map<String, List<Map<String, String>>> groupedNotifications = {};
-          for (var n in notifications) {
-            final key = n['deviceIdTopic']!;
-            groupedNotifications.putIfAbsent(key, () => []).add(n);
-          }
+        // Group notifications by deviceIdTopic
+        Map<String, List<Map<String, String>>> groupedNotifications = {};
+        for (var n in notifications) {
+          final key = n['deviceIdTopic']!;
+          groupedNotifications.putIfAbsent(key, () => []).add(n);
+        }
 
-          groupedNotifications.forEach((key, list) {
-            list.sort((a, b) {
-              final da = parseDate(a['timestamp']) ?? DateTime(0);
-              final db = parseDate(b['timestamp']) ?? DateTime(0);
-              return db.compareTo(da);
-            });
+        // Sort groups by the latest timestamp
+        groupedNotifications.forEach((key, list) {
+          list.sort((a, b) {
+            final da = parseDate(a['timestamp']) ?? DateTime(0);
+            final db = parseDate(b['timestamp']) ?? DateTime(0);
+            return db.compareTo(da);
           });
+        });
 
-          final sortedKeys = groupedNotifications.keys.toList();
-          sortedKeys.sort((a, b) {
-            final ta = parseDate(groupedNotifications[a]![0]['timestamp']) ?? DateTime(0);
-            final tb = parseDate(groupedNotifications[b]![0]['timestamp']) ?? DateTime(0);
-            return tb.compareTo(ta);
-          });
+        final sortedKeys = groupedNotifications.keys.toList();
+        sortedKeys.sort((a, b) {
+          final ta = parseDate(groupedNotifications[a]![0]['timestamp']) ?? DateTime(0);
+          final tb = parseDate(groupedNotifications[b]![0]['timestamp']) ?? DateTime(0);
+          return tb.compareTo(ta);
+        });
 
-          return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Notifications (${notifications.length})",
-                        style: TextStyle(color: strong, fontSize: 16, fontWeight: FontWeight.w800),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+             constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Notifications (${notifications.length})",
+                      style: TextStyle(
+                        color: strong,
+                        fontSize: getResponsiveFontSize(context, 14, 16),
+                        fontWeight: FontWeight.w800,
                       ),
-                      Row(
-                        children: [
-                          if (notifications.isNotEmpty)
-                            IconButton(
-                              icon: Icon(Icons.delete_sweep, color: Colors.red),
-                              onPressed: () {
-                                dialogSetState(() {
-                                  notifications.clear();
-                                });
-                                _savePrefs();
-                                if (!kIsWeb) {
-                                  _notificationsPlugin?.cancelAll();
-                                }
-                              },
-                              tooltip: 'Clear All',
-                            ),
+                    ),
+                    Row(
+                      children: [
+                        if (notifications.isNotEmpty)
                           IconButton(
-                            icon: Icon(Icons.close, color: subtle),
-                            onPressed: () => Navigator.pop(dialogContext),
-                            tooltip: 'Close',
+                            icon: Icon(Icons.delete_sweep, color: Colors.red, size: getResponsiveFontSize(context, 16, 24)),
+                            onPressed: () {
+                              dialogSetState(() {
+                                notifications.clear();
+                              });
+                              _savePrefs();
+                              if (!kIsWeb) {
+                                _notificationsPlugin?.cancelAll();
+                              }
+                            },
+                            tooltip: 'Clear All',
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 1),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: notifications.isEmpty
-                        ? Center(child: Text("No notifications", style: TextStyle(color: subtle)))
-                        : Scrollbar(
-                            thumbVisibility: true,
+                        IconButton(
+                          icon: Icon(Icons.close, color: subtle, size: getResponsiveFontSize(context, 16, 24)),
+                          onPressed: () => Navigator.pop(dialogContext),
+                          tooltip: 'Close',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const Divider(height: 1, thickness: 1),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: notifications.isEmpty
+                      ? Center(
+                          child: Text(
+                            "No notifications",
+                            style: TextStyle(color: subtle, fontSize: getResponsiveFontSize(context, 12, 14)),
+                          ),
+                        )
+                      : Scrollbar(
+                          thumbVisibility: true,
+                          controller: scrollController,
+                          child: ListView.separated(
                             controller: scrollController,
-                            child: ListView.separated(
-                              controller: scrollController,
-                              itemCount: sortedKeys.length,
-                              separatorBuilder: (_, __) => Divider(color: subtle.withOpacity(.12)),
-                              itemBuilder: (_, i) {
-                                final key = sortedKeys[i];
-                                final deviceNotifs = groupedNotifications[key]!;
-                                final latest = deviceNotifs[0];
-                                final hasMore = deviceNotifs.length > 1;
-                                return ListTile(
-                                  leading: Icon(Icons.warning, color: Colors.orange),
-                                  title: Text(
-                                    latest['message']!,
-                                    style: TextStyle(color: strong, fontSize: 12, fontWeight: FontWeight.w600),
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (hasMore)
-                                        GestureDetector(
-                                          onTap: () {
-                                            _showDeviceNotificationsDialog(dialogContext, key, dialogSetState);
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: Colors.blue,
-                                              borderRadius: BorderRadius.circular(12),
+                            itemCount: sortedKeys.length,
+                            separatorBuilder: (_, __) => Divider(color: subtle.withOpacity(0.12), height: 1),
+                            itemBuilder: (_, i) {
+                              final key = sortedKeys[i];
+                              final deviceNotifs = groupedNotifications[key]!;
+                              final latest = deviceNotifs[0];
+                              final hasMore = deviceNotifs.length > 1;
+
+                              // Extract device ID and topic for display
+                              final deviceParts = key.split('#');
+                              final deviceId = deviceParts[0];
+                              final topic = deviceParts.length > 1 ? deviceParts[1] : "Unknown";
+                              final mapped = _mapCategoryAndPrefix(topic);
+                              final sensorName = mapped.prefix.isNotEmpty ? "${mapped.prefix}${deviceId.padLeft(3, '0')}" : deviceId;
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.warning,
+                                      color: Colors.orange,
+                                      size: getResponsiveFontSize(context, 16, 24),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            "Anomaly in Device $sensorName: ${latest['anomaly']}",
+                                            style: TextStyle(
+                                              color: strong,
+                                              fontSize: getResponsiveFontSize(context, 10, 14),
+                                              fontWeight: FontWeight.w600,
                                             ),
-                                            child: Text(
-                                              "+${deviceNotifs.length - 1}",
-                                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                                            maxLines: 4,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          Text(
+                                            latest['period']!,
+                                            style: TextStyle(
+                                              color: subtle,
+                                              fontSize: getResponsiveFontSize(context, 8, 14),
                                             ),
                                           ),
-                                        ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        icon: Icon(Icons.delete, color: Colors.red),
-                                        onPressed: () {
-                                          dialogSetState(() {
-                                            _dismissNotification(key, latest['timestamp']!, latest['anomaly']!);
-                                          });
-                                        },
-                                        tooltip: 'Dismiss',
+                                          if (hasMore)
+                                            GestureDetector(
+                                              onTap: () {
+                                                _showDeviceNotificationsDialog(dialogContext, key, dialogSetState);
+                                              },
+                                              child: Padding(
+                                                padding: const EdgeInsets.only(top: 4.0),
+                                                child: Text(
+                                                  "+${deviceNotifs.length - 1} more",
+                                                  style: TextStyle(
+                                                    color: Colors.blue,
+                                                    fontSize: getResponsiveFontSize(context, 10, 12),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  onTap: () {
-                                    Navigator.pop(dialogContext);
-                                    _handleNotificationTap("$key#${latest['anomaly']}#${latest['timestamp']}");
-                                  },
-                                );
-                              },
-                            ),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showDeviceNotificationsDialog(BuildContext dialogContext, String deviceIdTopic, StateSetter dialogSetState) {
-    final deviceId = deviceIdTopic.split('#')[0];
-    final topic = deviceIdTopic.split('#')[1];
-    final mapped = _mapCategoryAndPrefix(topic);
-    final sensorName = mapped.prefix.isNotEmpty ? "${mapped.prefix}${deviceId.padLeft(3, '0')}" : deviceId;
-
-    showDialog(
-      context: dialogContext,
-      builder: (subContext) => StatefulBuilder(
-        builder: (subContext, subSetState) {
-          final deviceNotifs = notifications
-              .where((n) => n['deviceIdTopic'] == deviceIdTopic)
-              .toList()
-            ..sort((a, b) {
-              final da = parseDate(a['timestamp']) ?? DateTime(0);
-              final db = parseDate(b['timestamp']) ?? DateTime(0);
-              return db.compareTo(da);
-            });
-
-          if (deviceNotifs.isEmpty) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => Navigator.pop(subContext));
-            return const SizedBox();
-          }
-
-          final theme = Theme.of(subContext);
-          final isDark = theme.brightness == Brightness.dark;
-          final subtle = isDark ? Colors.white70 : Colors.black54;
-          final strong = isDark ? Colors.white : Colors.black;
-
-          return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "Notifications for $sensorName (${deviceNotifs.length})",
-                        style: TextStyle(color: strong, fontSize: 16, fontWeight: FontWeight.w800),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: subtle),
-                        onPressed: () => Navigator.pop(subContext),
-                        tooltip: 'Close',
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 1),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: ListView.separated(
-                      itemCount: deviceNotifs.length,
-                      separatorBuilder: (_, __) => Divider(color: subtle.withOpacity(.12)),
-                      itemBuilder: (_, i) {
-                        final n = deviceNotifs[i];
-                        return ListTile(
-                          leading: Icon(Icons.warning, color: Colors.orange),
-                          title: Text(
-                            n['message']!,
-                            style: TextStyle(color: strong, fontSize: 12, fontWeight: FontWeight.w600),
-                          ),
-                          trailing: IconButton(
-                            icon: Icon(Icons.delete, color: Colors.red),
-                            onPressed: () {
-                              _dismissNotification(deviceIdTopic, n['timestamp']!, n['anomaly']!);
-                              subSetState(() {});
-                              dialogSetState(() {});
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.delete,
+                                        color: Colors.red,
+                                        size: getResponsiveFontSize(context, 16, 24),
+                                      ),
+                                      onPressed: () {
+                                        dialogSetState(() {
+                                          _dismissNotification(key, latest['timestamp']!, latest['anomaly']!);
+                                        });
+                                      },
+                                      tooltip: 'Dismiss',
+                                    ),
+                                  ],
+                                ),
+                              );
                             },
-                            tooltip: 'Dismiss',
                           ),
-                          onTap: () {
-                            Navigator.pop(subContext);
-                            Navigator.pop(dialogContext);
-                            _handleNotificationTap("$deviceIdTopic#${n['anomaly']}#${n['timestamp']}");
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
+                        ),
+                ),
+              ],
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
+}
+
+void _showDeviceNotificationsDialog(BuildContext dialogContext, String deviceIdTopic, StateSetter dialogSetState) {
+  final deviceId = deviceIdTopic.split('#')[0];
+  final topic = deviceIdTopic.split('#')[1];
+  final mapped = _mapCategoryAndPrefix(topic);
+  final sensorName = mapped.prefix.isNotEmpty ? "${mapped.prefix}${deviceId.padLeft(3, '0')}" : deviceId;
+
+  showDialog(
+    context: dialogContext,
+    builder: (subContext) => StatefulBuilder(
+      builder: (subContext, subSetState) {
+        final deviceNotifs = notifications
+            .where((n) => n['deviceIdTopic'] == deviceIdTopic)
+            .toList()
+          ..sort((a, b) {
+            final da = parseDate(a['timestamp']) ?? DateTime(0);
+            final db = parseDate(b['timestamp']) ?? DateTime(0);
+            return db.compareTo(da);
+          });
+
+        if (deviceNotifs.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => Navigator.pop(subContext));
+          return const SizedBox();
+        }
+
+        final theme = Theme.of(subContext);
+        final isDark = theme.brightness == Brightness.dark;
+        final subtle = isDark ? Colors.white70 : Colors.black54;
+        final strong = isDark ? Colors.white : Colors.black;
+
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Notifications for $sensorName (${deviceNotifs.length})",
+                      style: TextStyle(
+                        color: strong,
+                        fontSize: MediaQuery.of(context).size.width < 600 ? 14 : 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: subtle, size: MediaQuery.of(context).size.width < 600 ? 16 : 24),
+                      onPressed: () => Navigator.pop(subContext),
+                      tooltip: 'Close',
+                    ),
+                  ],
+                ),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: deviceNotifs.length,
+                    separatorBuilder: (_, __) => Divider(color: subtle.withOpacity(.12)),
+                    itemBuilder: (_, i) {
+                      final n = deviceNotifs[i];
+                      return ListTile(
+                        title: Row(
+                          children: [
+                            Icon(Icons.warning, color: Colors.orange, size: MediaQuery.of(context).size.width < 600 ? 16 : 24),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                n['message']!,
+                                style: TextStyle(
+                                  color: strong,
+                                  fontSize: MediaQuery.of(context).size.width < 600 ? 8 : 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.delete, color: Colors.red, size: MediaQuery.of(context).size.width < 600 ? 16 : 24),
+                              onPressed: () {
+                                _dismissNotification(deviceIdTopic, n['timestamp']!, n['anomaly']!);
+                                subSetState(() {});
+                                dialogSetState(() {});
+                              },
+                              tooltip: 'Dismiss',
+                            ),
+                          ],
+                        ),
+                        onTap: () {
+                          Navigator.pop(subContext);
+                          Navigator.pop(dialogContext);
+                          _handleNotificationTap("$deviceIdTopic#${n['anomaly']}#${n['timestamp']}");
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
 
   Future<void> _showHistory(String deviceId, String topic) async {
     try {
@@ -820,7 +880,6 @@ class _AdminPageState extends State<AdminPage> {
             userList = (data['users'] as List).map<Map<String, String>>((email) {
               return {
                 "email": email.toString(),
-                "name": email.toString().split('@')[0],
                 "role": "User",
               };
             }).toList();
@@ -1373,14 +1432,16 @@ class _AdminPageState extends State<AdminPage> {
           icon: Icon(Icons.arrow_back, color: strong),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
-          'Admin Dashboard',
-          style: TextStyle(
-            color: strong,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-          ),
-        ),
+       title: Text(
+  'Admin Dashboard',
+  style: TextStyle(
+    color: strong,
+    fontWeight: FontWeight.w700,
+    letterSpacing: 0.2,
+    fontSize: MediaQuery.of(context).size.width < 600 ? 18 : 26, // 👈 smaller on mobile
+  ),
+),
+
         actions: [
           if (kIsWeb)
             Stack(
@@ -1629,7 +1690,7 @@ class _AdminPageState extends State<AdminPage> {
                                                   style: TextStyle(
                                                     color: strong,
                                                     fontWeight: FontWeight.w700,
-                                                    fontSize: 14,
+                                                     fontSize: getResponsiveFontSize(context, 12, 14),
                                                   ),
                                                   overflow: TextOverflow.ellipsis,
                                                 ),
@@ -1640,7 +1701,7 @@ class _AdminPageState extends State<AdminPage> {
                                                       "Name: ${d['Topic'] != null ? _mapCategoryAndPrefix(d['Topic']).category : "Unknown"}",
                                                       style: TextStyle(
                                                         color: subtle,
-                                                        fontSize: 12,
+                                                         fontSize: getResponsiveFontSize(context, 10, 14),
                                                       ),
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
@@ -1648,40 +1709,15 @@ class _AdminPageState extends State<AdminPage> {
                                                       "Last: ${d['lastReceivedTime']}",
                                                       style: TextStyle(
                                                         color: subtle,
-                                                        fontSize: 12,
+                                                        fontSize: getResponsiveFontSize(context, 10, 14),
                                                       ),
                                                       overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                    Builder(
-                                                      builder: (context) {
-                                                        final deviceId = d['DeviceId'] ?? "";
-                                                        final topic = d['Topic'] ?? "";
-                                                        final deviceIdTopic = "$deviceId#$topic";
-                                                        final latest = latestAnomalies[deviceIdTopic];
-                                                        if (latest != null) {
-                                                          return Text(
-                                                            "Latest Anomaly: ${latest['anomaly']} at ${latest['timestamp']}",
-                                                            style: TextStyle(
-                                                              color: Colors.orange,
-                                                              fontSize: 12,
-                                                            ),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          );
-                                                        }
-                                                        return const SizedBox.shrink();
-                                                      },
                                                     ),
                                                   ],
                                                 ),
                                                 trailing: Row(
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: [
-                                                    IconButton(
-                                                      icon: Icon(Icons.history, color: Colors.blue),
-                                                      onPressed: () => _showHistory(d['DeviceId'], d['Topic']),
-                                                      tooltip: 'View Past 24h Anomalies',
-                                                    ),
-                                                    const SizedBox(width: 8),
                                                     Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                       decoration: BoxDecoration(
@@ -1765,45 +1801,53 @@ class _AdminPageState extends State<AdminPage> {
                                                     : const Color(0xFF5BAA9D).withOpacity(0.9), // Light mode hover
                                                 onTap: () => _showUserDevices(u["email"]!),
                                                 child: ListTile(
-                                                  leading: CircleAvatar(
-                                                    backgroundColor: Colors.blue.withOpacity(.12),
-                                                    child: const Icon(Icons.person, color: Colors.blue),
-                                                  ),
-                                                  title: Text(
-                                                    u["name"] ?? "",
-                                                    style: TextStyle(
-                                                      color: strong,
-                                                      fontWeight: FontWeight.w700,
-                                                      fontSize: getResponsiveFontSize(context, 12, 14), // 👈 mobile=12, pc=14
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 1,
-                                                  ),
-                                                  subtitle: Text(
-                                                    "${u["email"]} • ${u["role"]}",
-                                                    style: TextStyle(
-                                                      color: subtle,
-                                                      fontSize: getResponsiveFontSize(context, 10, 12), // 👈 mobile=9, pc=10
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                    maxLines: 2,
-                                                  ),
-                                                  trailing: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      IconButton(
-                                                        tooltip: "Add Device",
-                                                        onPressed: () => _showAddDeviceDialog(u["email"]!),
-                                                        icon: const Icon(Icons.add, color: Colors.blue),
-                                                      ),
-                                                      IconButton(
-                                                        tooltip: "Delete",
-                                                        onPressed: () => _deleteUser(u["email"]!),
-                                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
+  contentPadding: EdgeInsets.symmetric(
+    horizontal: MediaQuery.of(context).size.width < 600 ? 8 : 16,
+  ),
+  horizontalTitleGap: MediaQuery.of(context).size.width < 600 ? 6 : 16, // reduce space for mobile
+  leading: CircleAvatar(
+    radius: MediaQuery.of(context).size.width < 600 ? 12 : 22,
+    backgroundColor: Colors.blue.withOpacity(.12),
+    child: Icon(
+      Icons.person,
+      color: Colors.blue,
+      size: MediaQuery.of(context).size.width < 600 ? 14 : 24,
+    ),
+  ),
+  title: Text(
+    u["email"] ?? "",
+    style: TextStyle(
+      color: strong,
+      fontWeight: FontWeight.w700,
+      fontSize: getResponsiveFontSize(context, 10, 14),
+    ),
+    overflow: TextOverflow.ellipsis,
+    maxLines: 1,
+  ),
+  trailing: Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      IconButton(
+        tooltip: "Add Device",
+        padding: EdgeInsets.zero, // 👈 removes extra padding around icon
+        constraints: const BoxConstraints(), // 👈 removes default min size
+        iconSize: MediaQuery.of(context).size.width < 600 ? 14 : 28,
+        onPressed: () => _showAddDeviceDialog(u["email"]!),
+        icon: const Icon(Icons.add, color: Colors.blue),
+      ),
+      SizedBox(width: MediaQuery.of(context).size.width < 600 ? 2: 12), // 👈 spacing between icons
+      IconButton(
+        tooltip: "Delete",
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        iconSize: MediaQuery.of(context).size.width < 600 ? 14 : 28,
+        onPressed: () => _deleteUser(u["email"]!),
+        icon: const Icon(Icons.delete, color: Colors.red),
+      ),
+    ],
+  ),
+)
+
                                               ),
                                               Divider(color: subtle.withOpacity(.12)),
                                             ],
