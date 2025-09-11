@@ -100,6 +100,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+  
     fetchDevicesAndNearest();
     _pollingTimer = Timer.periodic(const Duration(seconds: 59), (timer) {
       fetchDevicesAndNearest(silent: true);
@@ -407,6 +408,9 @@ Future<void> fetchDevicesAndNearest({bool silent = false}) async {
       final data = json.decode(response.body);
       devices = data["devices"] ?? [];
 
+      // 🔹 Total devices count
+      _totalDevices = devices.length;
+
       if (devices.isEmpty) {
         if (mounted) {
           setState(() {
@@ -424,6 +428,7 @@ Future<void> fetchDevicesAndNearest({bool silent = false}) async {
 
       if (mounted) {
         setState(() {
+          // update selected device
           if (selectedDevice == null) {
             selectedDevice = demoDevice;
           } else {
@@ -456,6 +461,7 @@ Future<void> fetchDevicesAndNearest({bool silent = false}) async {
     }
   }
 }
+
 
 Future<bool> _getUserLocationAndFindNearest() async {
   if (lastLocationCheck != null &&
@@ -605,7 +611,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
 
   Widget _windDial(dynamic direction, dynamic speed) {
     double angle = double.tryParse(direction?.toString() ?? "") ?? 0.0;
-    double velocity = double.tryParse(speed?.toString() ?? "") ?? 0.0;
+
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1499,7 +1505,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                                                             "WindDirection",
                                                                             "TimeStamp_IST",
                                                                             "CurrentTemperature",
-                                                                            "deviceid#topic",
+                                                                           "deviceid#topic",
                                                                             "ExpiresAt",
                                                                             "IMEINumber",
                                                                             "LastUpdated",
