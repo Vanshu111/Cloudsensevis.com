@@ -424,12 +424,12 @@ class _HomePageState extends State<HomePage> {
   Future<void> fetchDevicesAndNearest({bool silent = false}) async {
     try {
       const url =
-          "https://xa9ry8sls0.execute-api.us-east-1.amazonaws.com/CloudSense_device_activity_api_function";
+          "https://ccweytqvvj.execute-api.us-east-1.amazonaws.com/default/WS_Device_Activity";
       final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        devices = data["Current_Values"] ?? [];
+        devices = data["devices"] ?? [];
 
         if (devices.isEmpty) {
           if (mounted) {
@@ -442,7 +442,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
-              (d) => d["DeviceId"].toString() == "1",
+              (d) => d["deviceid#topic"].toString() == "11#WS/Campus/11",
               orElse: () => devices.first,
             );
 
@@ -453,8 +453,8 @@ class _HomePageState extends State<HomePage> {
             } else {
               final updated = devices.firstWhere(
                 (d) =>
-                    d["DeviceId"].toString() ==
-                    selectedDevice?["DeviceId"].toString(),
+                    d["deviceid#topic"].toString() ==
+                    selectedDevice?["deviceid#topic"].toString(),
                 orElse: () => demoDevice,
               );
               selectedDevice = Map<String, dynamic>.from(updated);
@@ -1242,9 +1242,9 @@ class _HomePageState extends State<HomePage> {
                                               screenWidth < 600;
 
                                           Widget deviceButton = TextButton(
-                                            style: (selectedDevice?["DeviceId"]
+                                            style: (selectedDevice?["deviceid#topic"]
                                                         .toString() ==
-                                                    "1")
+                                                    "11#WS/Campus/11")
                                                 ? TextButton.styleFrom(
                                                     backgroundColor: !isDarkMode
                                                         ? Colors.white
@@ -1278,9 +1278,9 @@ class _HomePageState extends State<HomePage> {
                                                     shape: const CircleBorder(),
                                                   ),
                                             onPressed: () async {
-                                              if (selectedDevice?["DeviceId"]
+                                              if (selectedDevice?["deviceid#topic"]
                                                       .toString() ==
-                                                  "1") {
+                                                  "11#WS/Campus/11") {
                                                 // Check nearest
                                                 bool gotLocation =
                                                     await _getUserLocationAndFindNearest();
@@ -1301,7 +1301,7 @@ class _HomePageState extends State<HomePage> {
                                                   });
                                                 }
                                               } else {
-                                                // Back to Device 1
+                                                // Back to Device 11
                                                 setState(() {
                                                   selectedDevice = devices
                                                       .cast<
@@ -1309,18 +1309,18 @@ class _HomePageState extends State<HomePage> {
                                                               dynamic>>()
                                                       .firstWhere(
                                                           (d) =>
-                                                              d["DeviceId"]
+                                                              d["deviceid#topic"]
                                                                   .toString() ==
-                                                              "1",
+                                                              "11#WS/Campus/11",
                                                           orElse: () =>
                                                               devices.first);
                                                   errorMessage = null;
                                                 });
                                               }
                                             },
-                                            child: selectedDevice?["DeviceId"]
+                                            child: selectedDevice?["deviceid#topic"]
                                                         .toString() ==
-                                                    "1"
+                                                    "11#WS/Campus/11"
                                                 ? const Text(
                                                     "Check Nearest Device",
                                                     style: TextStyle(
@@ -1507,9 +1507,10 @@ class _HomePageState extends State<HomePage> {
                                                                             "Latitude",
                                                                             "Longitude",
                                                                             "WindDirection",
-                                                                            "TimeStamp",
+                                                                            "TimeStamp_IST",
                                                                             "CurrentTemperature",
-                                                                            "DeviceId",
+                                                                            "deviceid#topic",
+                                                                            "ExpiresAt",
                                                                             "IMEINumber",
                                                                             "LastUpdated",
                                                                             "Topic",
@@ -1629,18 +1630,19 @@ class _HomePageState extends State<HomePage> {
                                                                     !_isNullOrEmpty(e
                                                                         .value) &&
                                                                     !{
-                                                                      "Latitude",
-                                                                      "Longitude",
-                                                                      "WindDirection",
-                                                                      "TimeStamp",
-                                                                      "CurrentTemperature",
-                                                                      "DeviceId",
-                                                                      "IMEINumber",
-                                                                      "LastUpdated",
-                                                                      "Topic",
-                                                                      "SignalStrength",
-                                                                      "BatteryVoltage",
-                                                                      "RainfallHourly"
+                                                                    "Latitude",
+                                                                            "Longitude",
+                                                                            "WindDirection",
+                                                                            "TimeStamp_IST",
+                                                                            "CurrentTemperature",
+                                                                            "deviceid#topic",
+                                                                            "ExpiresAt",
+                                                                            "IMEINumber",
+                                                                            "LastUpdated",
+                                                                            "Topic",
+                                                                            "SignalStrength",
+                                                                            "BatteryVoltage",
+                                                                            "RainfallHourly"
                                                                     }.contains(
                                                                         e.key))
                                                                 .map(
@@ -1705,7 +1707,7 @@ class _HomePageState extends State<HomePage> {
                                                                     "WindSpeed"])),
                                                       const SizedBox(height: 5),
                                                       Text(
-                                                          "Last Updated: ${_formatValue(selectedDevice?["TimeStamp"])}",
+                                                          "Last Updated: ${_formatValue(selectedDevice?["TimeStamp_IST"])}",
                                                           textAlign:
                                                               TextAlign.center,
                                                           style: const TextStyle(
