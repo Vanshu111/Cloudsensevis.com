@@ -130,8 +130,10 @@ class GatewayPage extends StatelessWidget {
     BuildContext context,
   ) {
     return Container(
-      color: const Color.fromARGB(
-          255, 78, 127, 133), // background same as you want
+      color: Theme.of(context).brightness == Brightness.dark
+          ? const Color.fromARGB(255, 28, 59, 75) // Dark mode color
+          : const Color.fromARGB(
+              255, 78, 127, 133), // background same as you want
       padding: const EdgeInsets.symmetric(horizontal: 92, vertical: 24),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
