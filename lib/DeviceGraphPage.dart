@@ -1170,46 +1170,77 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     try {
       final response = await http.get(
         Uri.parse(
-          'https://xa9ry8sls0.execute-api.us-east-1.amazonaws.com/CloudSense_device_activity_api_function',
+          'https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity',
         ),
         headers: {'Content-Type': 'application/json'},
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
+        final List<dynamic>? devices = data['devices'];
+        if (devices == null || devices.isEmpty) {
+          setState(() {
+            _errorMessage = 'No device data received';
+            _isLoading = false;
+          });
+          return;
+        }
 
         List<DeviceStatus> deviceStatuses = [];
 
-        final activityTypes = [
-          {'key': 'chloritrone_Device_Activity', 'type': 'chloritrone'},
-          {'key': 'WS_Device_Activity', 'type': 'WS'},
-          {'key': 'weather_Device_Activity', 'type': 'weather'},
-          {'key': 'water_Device_Activity', 'type': 'water'},
-          {'key': 'Awadh_Jio_Device_Activity', 'type': 'Awadh_Jio'},
-        ];
+        for (var device in devices) {
+          final deviceIdTopic = device['deviceid#topic']?.toString() ?? "";
+          if (deviceIdTopic.isEmpty) continue; // Skip empty or invalid entries
 
-        for (var activity in activityTypes) {
-          final devices = data[activity['key']] as List<dynamic>? ?? [];
-          for (var device in devices) {
-            final deviceData = device as Map<String, dynamic>;
-            final lat = deviceData['LastKnownLatitude'] is num &&
-                    deviceData['LastKnownLatitude'] != 0
-                ? deviceData['LastKnownLatitude'] as double?
-                : null;
-            final lon = deviceData['LastKnownLongitude'] is num &&
-                    deviceData['LastKnownLongitude'] != 0
-                ? deviceData['LastKnownLongitude'] as double?
-                : null;
+          // Split deviceid#topic into DeviceId and Topic
+          final parts = deviceIdTopic.split('#');
+          if (parts.length < 2) continue;
+          final deviceId = parts[0];
+          final topic =
+              parts.sublist(1).join('#'); // Handle topics containing '#'
 
-            deviceStatuses.add(DeviceStatus(
-              deviceId: deviceData['DeviceId'].toString(),
-              lastReceivedTime: parseTime(deviceData['lastReceivedTime']),
-              latitude: lat,
-              longitude: lon,
-              activityType:
-                  _mapActivityToPrefix(activity['type']!, deviceData['Topic']),
-            ));
+          // Skip devices with topics starting with 'BF/' or 'CS/' for consistency
+          if (topic.startsWith('BF/') || topic.startsWith('CS/')) {
+            continue;
           }
+
+          // Check LastKnownLatitude/LastKnownLongitude first, then fall back to Latitude/Longitude
+          double? lat;
+          double? lon;
+          if (device['LastKnownLatitude'] is num &&
+              device['LastKnownLatitude'] != 0) {
+            lat = (device['LastKnownLatitude'] as num).toDouble();
+          } else if (device['Latitude'] is num && device['Latitude'] != 0) {
+            lat = (device['Latitude'] as num).toDouble();
+          }
+          if (device['LastKnownLongitude'] is num &&
+              device['LastKnownLongitude'] != 0) {
+            lon = (device['LastKnownLongitude'] as num).toDouble();
+          } else if (device['Longitude'] is num && device['Longitude'] != 0) {
+            lon = (device['Longitude'] as num).toDouble();
+          }
+
+          // Derive activityType from Topic
+          final activityType = _mapActivityToPrefix(
+            _getActivityTypeFromTopic(topic),
+            topic,
+          );
+
+          final lastReceivedTime = parseTime(device['TimeStamp_IST']);
+
+          // Debug log to verify coordinates
+          if (kDebugMode) {
+            print(
+                "Device $deviceIdTopic: lat=$lat, lon=$lon, lastReceivedTime=$lastReceivedTime, activityType=$activityType");
+          }
+
+          deviceStatuses.add(DeviceStatus(
+            deviceId: deviceId,
+            lastReceivedTime: lastReceivedTime,
+            latitude: lat,
+            longitude: lon,
+            activityType: activityType,
+          ));
         }
 
         deviceStatuses.sort((a, b) {
@@ -1220,27 +1251,51 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
         setState(() {
           _deviceStatuses = deviceStatuses;
+          _isLoading = false;
         });
       } else {
         setState(() {
-          // _errorMessage =
-          //     'Failed to load device details: HTTP ${response.statusCode}';
+          _errorMessage =
+              'Failed to load device details: HTTP ${response.statusCode}';
+          _isLoading = false;
         });
       }
     } catch (e) {
       setState(() {
-        // _errorMessage = 'Error fetching device details: $e';
-      });
-    } finally {
-      setState(() {
+        _errorMessage = 'Error fetching device details: $e';
         _isLoading = false;
       });
     }
   }
 
+  String _getActivityTypeFromTopic(String topic) {
+    if (topic.startsWith('WS/Weather/')) return 'weather';
+    if (topic.startsWith('WS/Water/')) return 'water';
+
+    if (topic.startsWith('WS/JioData/'))
+      return 'Awadh_Jio'; // Map JioData to Awadh_Jio
+
+    if (topic.startsWith('WS/SVPU/')) return 'SV'; // Map SVPU to WS
+    if (topic.startsWith('chloritrone/')) return 'chloritrone';
+    if (topic.startsWith('Awadh_Jio/')) return 'Awadh_Jio';
+    if (topic == 'WS/Campus/2') return 'CF';
+    if (topic.startsWith('WS/Campus/')) return 'CP';
+    if (topic.contains('SSMet/Railway')) return 'SM';
+    if (topic.contains('NARL')) return 'NA';
+    if (topic.contains('KJSCE')) return 'KJ';
+    if (topic.contains('KARGIL/')) return 'KD';
+
+    if (topic.contains('Mysuru')) return 'MY';
+    return 'unknown';
+  }
+
   String parseTime(String? time) {
-    if (time == null) return 'Unknown';
+    if (time == null || time.isEmpty || time == "N/A") return 'Unknown';
     try {
+      // Remove extra spaces
+      time = time.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+      // Handle yyyyMMddTHHmmss (compact format)
       final compactRegex = RegExp(r'^\d{8}T\d{6}$');
       if (compactRegex.hasMatch(time)) {
         final year = int.parse(time.substring(0, 4));
@@ -1254,6 +1309,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         );
       }
 
+      // Handle yyyy-MM-dd HH:mm:ss
+      final standardRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$');
+      if (standardRegex.hasMatch(time)) {
+        final parsed = DateTime.parse(time);
+        return DateFormat('dd-MM-yyyy HH:mm:ss').format(parsed);
+      }
+
+      // Handle dd-MM-yyyy HH:mm:ss
       final dmyRegex = RegExp(r'^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$');
       if (dmyRegex.hasMatch(time)) {
         final parts = time.split(' ');
@@ -1270,7 +1333,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         );
       }
 
-      final amPmRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2} (AM|PM)$');
+      // Handle yyyy-MM-dd HH:mm AM/PM
+      final amPmRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)$');
       if (amPmRegex.hasMatch(time)) {
         final isPm = time.endsWith('PM');
         final base = time.replaceAll(RegExp(r' (AM|PM)$'), '');
@@ -1293,12 +1357,16 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         );
       }
 
+      // Fallback to DateTime.tryParse
       final parsed = DateTime.tryParse(time.replaceAll('  ', ' '));
       return parsed != null
           ? DateFormat('dd-MM-yyyy HH:mm:ss').format(parsed)
-          : time;
+          : 'Unknown';
     } catch (e) {
-      return time;
+      if (kDebugMode) {
+        print("Failed to parse time: $time, error: $e");
+      }
+      return 'Unknown';
     }
   }
 
@@ -1306,26 +1374,24 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (activityType == 'chloritrone') return 'CB';
     if (activityType == 'water') return 'WQ';
     if (activityType == 'weather') return 'weather';
-    if (activityType == 'Awadh_Jio') return 'FS'; // Map Awadh_Jio to FS
+    if (activityType == 'Awadh_Jio') return 'FS';
     if (activityType == 'WS') {
-      if (topic == null) return 'FS'; // Default to FS if topic is null
+      if (topic == null) return 'FS';
       if (topic.contains('SSMET')) return 'SM';
       if (topic.contains('NARL')) return 'NA';
-      if (topic == 'WS/Campus/2') return 'CF'; // Exact match before contains
+      if (topic == 'WS/Campus/2') return 'CF';
       if (topic.contains('WS/Campus')) return 'CP';
       if (topic.contains('KJSCE')) return 'KJ';
       if (topic.contains('SVPU')) return 'SV';
       if (topic.contains('Mysuru')) return 'MY';
-      return 'FS'; // Default to FS for other WS topics
+      return 'FS';
     }
-
     return activityType;
   }
 
   String _getPrefix(String deviceName) {
     if (deviceName.startsWith('Awadh_Jio')) return 'Awadh_Jio';
-    if (deviceName.startsWith('weather'))
-      return 'weather'; // Adjust if weather has a specific prefix
+    if (deviceName.startsWith('weather')) return 'weather';
     return deviceName.substring(0, 2);
   }
 
