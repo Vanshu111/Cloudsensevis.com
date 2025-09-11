@@ -302,8 +302,13 @@ class _AppBarWidgetState extends State<AppBarWidget> {
   Widget _buildUserDropdown(BuildContext context, bool isDarkMode,
       bool isTablet, GlobalKey userButtonKey) {
     final userProvider = Provider.of<UserProvider>(context);
-    final isAdmin = userProvider.userEmail?.trim().toLowerCase() ==
-        '05agriculture.05@gmail.com';
+    final email = userProvider.userEmail?.trim().toLowerCase();
+
+    final adminEmails = [
+      'sejalsankhyan2001@gmail.com',
+      'pallavikrishnan01@gmail.com',
+      'officeharsh25@gmail.com',
+    ];
 
     return GestureDetector(
       onTap: () async {
@@ -325,38 +330,80 @@ class _AppBarWidgetState extends State<AppBarWidget> {
           color: isDarkMode ? Colors.grey[800] : Colors.white,
           items: userProvider.userEmail != null
               ? [
-                  PopupMenuItem(
-                    value: 'devices',
-                    child: Row(
-                      children: [
-                        Icon(Icons.devices,
-                            color: isDarkMode ? Colors.white : Colors.black,
-                            size: 20), // Reduced icon size
-                        const SizedBox(width: 8),
-                        const Text('My Devices'),
-                      ],
+                  // ✅ Admin ke liye
+                  if (adminEmails.contains(email))
+                    PopupMenuItem(
+                      value: 'data',
+                      child: Row(
+                        children: [
+                          Icon(Icons.data_usage,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                              size: 20),
+                          const SizedBox(width: 8),
+                          const Text('My Data'),
+                        ],
+                      ),
+                    )
+                  else ...[
+                    // ✅ Normal user ke liye
+                    PopupMenuItem(
+                      value: 'devices',
+                      child: Row(
+                        children: [
+                          Icon(Icons.devices,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                              size: 20),
+                          const SizedBox(width: 8),
+                          const Text('My Devices'),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (!isAdmin)
                     PopupMenuItem(
                       value: 'account',
                       child: Row(
                         children: [
                           Icon(Icons.account_circle,
                               color: isDarkMode ? Colors.white : Colors.black,
-                              size: 20), // Reduced icon size
+                              size: 20),
                           const SizedBox(width: 8),
                           const Text('Account Info'),
                         ],
                       ),
                     ),
+                    PopupMenuItem(
+                      value: 'theme',
+                      child: Row(
+                        children: [
+                          Icon(
+                            isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                            color: isDarkMode ? Colors.white : Colors.black,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Theme'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'share',
+                      child: Row(
+                        children: [
+                          Icon(Icons.share,
+                              color: isDarkMode ? Colors.white : Colors.black,
+                              size: 20),
+                          const SizedBox(width: 8),
+                          const Text('Share'),
+                        ],
+                      ),
+                    ),
+                  ],
                   PopupMenuItem(
                     value: 'logout',
                     child: Row(
                       children: [
                         Icon(Icons.logout,
                             color: isDarkMode ? Colors.white : Colors.black,
-                            size: 20), // Reduced icon size
+                            size: 20),
                         const SizedBox(width: 8),
                         const Text('Logout'),
                       ],
@@ -370,7 +417,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                       children: [
                         Icon(Icons.login,
                             color: isDarkMode ? Colors.white : Colors.black,
-                            size: 20), // Reduced icon size
+                            size: 20),
                         const SizedBox(width: 8),
                         const Text('Login/Signup'),
                       ],
@@ -379,10 +426,25 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                 ],
         );
 
-        if (selected == 'devices') {
-          Navigator.pushNamed(context, '/devicelist');
-        } else if (selected == 'account' && !isAdmin) {
-          Navigator.pushNamed(context, '/accountinfo');
+        // ✅ Navigation logic
+        if (selected == 'data') {
+          Navigator.pushNamed(context, '/admin');
+        } else if (selected == 'devices') {
+          if (email == '05agriculture.05@gmail.com') {
+            Navigator.pushNamed(context, '/deviceinfo');
+          } else {
+            Navigator.pushNamed(context, '/devicelist');
+          }
+        } else if (selected == 'account') {
+          Navigator.pushNamed(
+              context, '/accountinfo'); // Add your account info page route
+        } else if (selected == 'theme') {
+          Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
+        } else if (selected == 'share') {
+          Share.share(
+            'Check out our app on Google Play Store: https://play.google.com/store/apps/details?id=com.CloudSenseVis',
+            subject: 'Download Our App',
+          );
         } else if (selected == 'logout') {
           _handleLogout(context);
         } else if (selected == 'login') {
@@ -394,7 +456,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
           Text(
             userProvider.userEmail ?? 'Guest',
             style: TextStyle(
-              fontSize: isTablet ? 12 : 14, // Reduced from 14/16
+              fontSize: isTablet ? 12 : 14,
               color: isDarkMode ? Colors.white : Colors.black,
               fontWeight: FontWeight.bold,
             ),
@@ -402,7 +464,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
           Icon(
             Icons.arrow_drop_down,
             color: isDarkMode ? Colors.white : Colors.black,
-            size: 18, // Reduced from 20
+            size: 18,
           ),
         ],
       ),

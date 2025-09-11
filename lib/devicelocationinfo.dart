@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:cloud_sense_webapp/devicemap.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceActivityPage extends StatefulWidget {
   const DeviceActivityPage({super.key});
@@ -10,9 +12,15 @@ class DeviceActivityPage extends StatefulWidget {
   State<DeviceActivityPage> createState() => _DeviceActivityPageState();
 }
 
+Future<bool> isUserLoggedIn() async {
+  final prefs = await SharedPreferences.getInstance();
+  final email = prefs.getString('email');
+  return email != null && email.isNotEmpty;
+}
+
 class _DeviceActivityPageState extends State<DeviceActivityPage> {
   final String apiUrl =
-      "https://xa9ry8sls0.execute-api.us-east-1.amazonaws.com/CloudSense_device_activity_api_function";
+      "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity";
 
   bool isLoading = true;
   bool showList = true;
@@ -35,37 +43,62 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
+        final List<dynamic>? devicesList = data['devices'];
+        if (devicesList == null || devicesList.isEmpty) {
+          setState(() {
+            allDevices = [];
+            totalActive = 0;
+            totalInactive = 0;
+            isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("No device data received")),
+          );
+          return;
+        }
 
         List<Map<String, dynamic>> devices = [];
+        for (var device in devicesList) {
+          final deviceIdTopic = device['deviceid#topic']?.toString() ?? "";
+          if (deviceIdTopic.isEmpty) continue;
 
-        final keysToInclude = [
-          'WS_Device_Activity',
-          'Awadh_Jio_Device_Activity',
-          'weather_Device_Activity',
-        ];
+          // Split deviceid#topic into DeviceId and Topic
+          final parts = deviceIdTopic.split('#');
+          if (parts.length < 2) continue;
+          final deviceId = parts[0];
+          final topic =
+              parts.sublist(1).join('#'); // Handle topics containing '#'
 
-        for (var key in keysToInclude) {
-          if (data[key] != null) {
-            for (var device in data[key]) {
-              DateTime? lastTime = parseDate(device['lastReceivedTime']);
-              bool isActive = false;
+          // Skip devices with topics starting with 'BF/' or 'CS/' for consistency
+          if (topic.startsWith('BF/') || topic.startsWith('CS/')) {
+            continue;
+          }
 
-              if (lastTime != null) {
-                final diff = DateTime.now().difference(lastTime);
-                isActive = diff.inHours <= 24;
-              }
-
-              devices.add({
-                "DeviceId": device['DeviceId'],
-                "lastReceivedTime": lastTime?.toString() ?? "Invalid date",
-                "isActive": isActive,
-                "Group": key,
-                "Topic":
-                    key == "WS_Device_Activity" ? device['Topic'] ?? "" : null
-              });
+          DateTime? lastTime = parseDate(device['TimeStamp_IST']);
+          if (kDebugMode && lastTime == null) {
+            print(
+                "Failed to parse TimeStamp_IST: ${device['TimeStamp_IST']} for device $deviceIdTopic");
+          }
+          bool isActive = false;
+          if (lastTime != null) {
+            final diff = DateTime.now().difference(lastTime);
+            isActive = diff.inHours <= 24;
+            if (kDebugMode) {
+              print(
+                  "Device $deviceIdTopic: TimeStamp_IST=${device['TimeStamp_IST']}, Parsed=$lastTime, Diff=${diff.inHours} hours, isActive=$isActive");
             }
           }
+
+          devices.add({
+            "DeviceId": deviceId,
+            "lastReceivedTime": lastTime?.toString() ?? "Invalid date",
+            "isActive": isActive,
+            "Group": topic
+                .split('/')[0], // Use first part of topic as Group (e.g., 'WS')
+            "Topic": topic,
+          });
         }
+
         devices.sort((a, b) {
           if (a['isActive'] == b['isActive']) return 0;
           return a['isActive'] ? -1 : 1;
@@ -82,14 +115,26 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
         });
       } else {
         setState(() => isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Device API error: ${response.statusCode}")),
+        );
       }
     } catch (e) {
       setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Device fetch failed")),
+      );
+      if (kDebugMode) debugPrint("fetchDevices error: $e");
     }
   }
 
-  DateTime? parseDate(String dateStr) {
+  DateTime? parseDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty || dateStr == "N/A") return null;
     try {
+      // Remove extra spaces
+      dateStr = dateStr.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+      // Handle yyyyMMddTHHmmss (compact format)
       final compactRegex = RegExp(r'^\d{8}T\d{6}$');
       if (compactRegex.hasMatch(dateStr)) {
         final year = int.parse(dateStr.substring(0, 4));
@@ -101,23 +146,29 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
         return DateTime(year, month, day, hour, minute, second);
       }
 
+      // Handle yyyy-MM-dd HH:mm:ss
+      final standardRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$');
+      if (standardRegex.hasMatch(dateStr)) {
+        return DateTime.parse(dateStr);
+      }
+
+      // Handle dd-MM-yyyy HH:mm:ss
       final dmyRegex = RegExp(r'^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$');
       if (dmyRegex.hasMatch(dateStr)) {
         final parts = dateStr.split(' ');
         final dateParts = parts[0].split('-');
         final timeParts = parts[1].split(':');
-
         final day = int.parse(dateParts[0]);
         final month = int.parse(dateParts[1]);
         final year = int.parse(dateParts[2]);
         final hour = int.parse(timeParts[0]);
         final minute = int.parse(timeParts[1]);
         final second = int.parse(timeParts[2]);
-
         return DateTime(year, month, day, hour, minute, second);
       }
 
-      final amPmRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2} (AM|PM)$');
+      // Handle yyyy-MM-dd HH:mm AM/PM
+      final amPmRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2} (AM|PM)$');
       if (amPmRegex.hasMatch(dateStr)) {
         final isPm = dateStr.endsWith('PM');
         final base = dateStr.replaceAll(RegExp(r' (AM|PM)$'), '');
@@ -126,11 +177,9 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
         final time = dateTimeParts[1];
         final dateParts = date.split('-');
         final timeParts = time.split(':');
-
         int hour = int.parse(timeParts[0]);
         if (isPm && hour < 12) hour += 12;
         if (!isPm && hour == 12) hour = 0;
-
         return DateTime(
           int.parse(dateParts[0]),
           int.parse(dateParts[1]),
@@ -140,8 +189,12 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
         );
       }
 
-      return DateTime.tryParse(dateStr.replaceAll('  ', ' '));
-    } catch (_) {
+      // Fallback to DateTime.tryParse
+      return DateTime.tryParse(dateStr);
+    } catch (e) {
+      if (kDebugMode) {
+        print("Failed to parse date: $dateStr, error: $e");
+      }
       return null;
     }
   }
@@ -420,8 +473,17 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
                                     return _HoverableDeviceCard(
                                       isDarkMode: isDarkMode,
                                       device: device,
-                                      onTap: () {
-                                        Navigator.pushNamed(context, "/login");
+                                      onTap: () async {
+                                        bool loggedIn = await isUserLoggedIn();
+                                        if (loggedIn) {
+                                          // ✅ Agar login hai to /devicelist pe bhejo
+                                          Navigator.pushNamed(
+                                              context, "/devicelist");
+                                        } else {
+                                          // ❌ Agar login nahi hai to login page pe bhejo
+                                          Navigator.pushNamed(
+                                              context, "/login");
+                                        }
                                       },
                                     );
                                   },

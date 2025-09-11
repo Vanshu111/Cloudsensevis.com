@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_sense_webapp/devicelocationinfo.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -74,37 +75,50 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
 
   Future<void> _loadDeviceDataFromApi() async {
     final url =
-        'https://xa9ry8sls0.execute-api.us-east-1.amazonaws.com/CloudSense_device_activity_api_function';
+        'https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity';
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final Map<String, dynamic> jsonResponse = json.decode(response.body);
-
-        // Extract devices from both Awadh_Jio and WS_Device_Activity
-        final List<dynamic> awadhDevices =
-            jsonResponse['Awadh_Jio_Device_Activity'] ?? [];
-        final List<dynamic> wsDevices =
-            jsonResponse['WS_Device_Activity'] ?? [];
-
-        // Combine both lists
-        final List<dynamic> combinedDevices = [...awadhDevices, ...wsDevices];
+        final List<dynamic>? devices = jsonResponse['devices'];
+        if (devices == null || devices.isEmpty) {
+          _showError('No device data received');
+          return;
+        }
 
         final List<Map<String, dynamic>> devicesWithLocation = [];
 
-        for (var item in combinedDevices) {
+        for (var item in devices) {
+          final deviceIdTopic = item['deviceid#topic']?.toString() ?? "";
+          if (deviceIdTopic.isEmpty) continue;
+
+          // Split deviceid#topic into DeviceId and Topic
+          final parts = deviceIdTopic.split('#');
+          if (parts.length < 2) continue;
+          final deviceId = parts[0];
+          final topic =
+              parts.sublist(1).join('#'); // Handle topics containing '#'
+
+          // Skip devices with topics starting with 'BF/' or 'CS/' for consistency
+          if (topic.startsWith('BF/') || topic.startsWith('CS/')) {
+            continue;
+          }
+
           final lat = item['LastKnownLatitude'];
           final lon = item['LastKnownLongitude'];
+          final lastActive =
+              parseDate(item['TimeStamp_IST'])?.toString() ?? 'N/A';
 
           if (lat != null && lon != null) {
             final location = await _getLocationDetails(
                 (lat as num).toDouble(), (lon as num).toDouble());
 
             devicesWithLocation.add({
-              'deviceId': item['DeviceId'].toString(),
+              'deviceId': deviceId,
               'latitude': (lat).toDouble(),
               'longitude': (lon).toDouble(),
-              'last_active': item['lastReceivedTime'],
-              'topic': item['Topic'] ?? 'N/A',
+              'last_active': lastActive,
+              'topic': topic,
               'place': location['place'],
               'state': location['state'],
               'country': location['country'],
@@ -120,6 +134,43 @@ class _DeviceMapScreenState extends State<DeviceMapScreen> {
       }
     } catch (e) {
       _showError('Error loading devices: $e');
+    }
+  }
+
+  DateTime? parseDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty || dateStr == "N/A") return null;
+    try {
+      // Remove extra spaces
+      dateStr = dateStr.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+      // Handle yyyy-MM-dd HH:mm:ss
+      final standardRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$');
+      if (standardRegex.hasMatch(dateStr)) {
+        return DateTime.parse(dateStr);
+      }
+
+      // Handle dd-MM-yyyy HH:mm:ss
+      final dmyRegex = RegExp(r'^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$');
+      if (dmyRegex.hasMatch(dateStr)) {
+        final parts = dateStr.split(' ');
+        final dateParts = parts[0].split('-');
+        final timeParts = parts[1].split(':');
+        final day = int.parse(dateParts[0]);
+        final month = int.parse(dateParts[1]);
+        final year = int.parse(dateParts[2]);
+        final hour = int.parse(timeParts[0]);
+        final minute = int.parse(timeParts[1]);
+        final second = int.parse(timeParts[2]);
+        return DateTime(year, month, day, hour, minute, second);
+      }
+
+      // Fallback to DateTime.tryParse
+      return DateTime.tryParse(dateStr);
+    } catch (e) {
+      if (kDebugMode) {
+        print("Failed to parse date: $dateStr, error: $e");
+      }
+      return null;
     }
   }
 
