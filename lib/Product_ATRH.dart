@@ -602,8 +602,8 @@ class ATRHSensorPage extends StatelessWidget {
                   color: isDarkMode ? Colors.white : Colors.blue.shade800,
                 )),
             const SizedBox(height: 10),
-            featureItem("Accurate Environmental Measurements", isDarkMode),
-            featureItem("Wide measurement range", isDarkMode),
+            featureItem(
+                "Accurate Wide Environmental Measurement Range", isDarkMode),
             featureItem(
                 "Maintenance-free for long-term field deployment", isDarkMode),
             featureItem("Low power consumption, suitable for remote station",

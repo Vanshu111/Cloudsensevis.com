@@ -617,6 +617,7 @@ class UltrasonicSensorPage extends StatelessWidget {
             featureItem("Smart agriculture and precision farming", isDarkMode),
             featureItem("Ports and harbours", isDarkMode),
             featureItem("Runways and helipads", isDarkMode),
+            featureItem("Wind turbine performance monitoring", isDarkMode),
           ],
         ),
       ),

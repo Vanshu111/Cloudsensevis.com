@@ -637,6 +637,7 @@ class ProductPage extends StatelessWidget {
                 "Environmental monitoring & climate research", isDarkMode),
             featureItem("Suitable for precise/general purpose rain monitoring",
                 isDarkMode),
+            featureItem("Urban drainage & stormwater management", isDarkMode),
           ],
         ),
       ),

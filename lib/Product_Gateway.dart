@@ -464,12 +464,12 @@ class GatewayPage extends StatelessWidget {
     final List<String> specItems = [
       "Input Voltage Range : 5 - 30 v",
       "On board led indications for networking , cloud and BLE connectivity.",
-      "On board flash memory, sd card slot, MIC , sim card, gsm and BLE Antenna.",
-      "Support Multiple Communications protocol such as SPI,I2C,I2S,UART etc.",
-      "Integrated with both battery and solar panel.",
       "Processor : Dual- Core Arm Cortex-M33.",
       "Controller used is nrf5340.",
       "Bluetooth version: BLE 5.4",
+      "On board flash memory, sd card slot, MIC , sim card, gsm and BLE Antenna.",
+      "Support Multiple Communications protocol such as SPI,I2C,I2S,UART etc.",
+      "Integrated with both battery and solar panel.",
       "512KB RAM +1MB Flash",
     ];
     final screenWidth = MediaQuery.of(context).size.width;
@@ -571,9 +571,9 @@ class GatewayPage extends StatelessWidget {
             featureItem(
                 "Real Time Monitoring with low power consumptions", isDarkMode),
             featureItem("FOTA (Firmware Over the Air)", isDarkMode),
-            featureItem("100+ Node Connected at a time", isDarkMode),
             featureItem(
-                "BLE Range up to 1km at line of sight (LOS)", isDarkMode),
+                "Supports 100+ nodes with BLE range up to 1 km Line of sight",
+                isDarkMode),
             featureItem("IP66 & Compact design", isDarkMode),
             featureItem("Connectivity option: 4G, WIFI, LAN", isDarkMode),
           ],
