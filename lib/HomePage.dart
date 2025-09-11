@@ -393,144 +393,162 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> fetchDevicesAndNearest({bool silent = false}) async {
-    try {
-      const url =
-          "https://ccweytqvvj.execute-api.us-east-1.amazonaws.com/default/WS_Device_Activity";
-      final response = await http.get(Uri.parse(url));
+DateTime? lastLocationCheck;
+Duration cacheDuration = const Duration(seconds: 300); 
+Map<String, dynamic>? cachedNearest;
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        devices = data["devices"] ?? [];
+Future<void> fetchDevicesAndNearest({bool silent = false}) async {
+  try {
+    const url =
+        "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity";
+    final response = await http.get(Uri.parse(url));
 
-        if (devices.isEmpty) {
-          if (mounted) {
-            setState(() {
-              errorMessage = "No devices found.";
-              isLoading = false;
-            });
-          }
-          return;
-        }
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      devices = data["devices"] ?? [];
 
-        final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
-              (d) => d["deviceid#topic"].toString() == "1#WS/Campus/1",
-              orElse: () => devices.first,
-            );
-
+      if (devices.isEmpty) {
         if (mounted) {
           setState(() {
-            if (selectedDevice == null) {
-              selectedDevice = demoDevice;
-            } else {
-              final updated = devices.firstWhere(
-                (d) =>
-                    d["deviceid#topic"].toString() ==
-                    selectedDevice?["deviceid#topic"].toString(),
-                orElse: () => demoDevice,
-              );
-              selectedDevice = Map<String, dynamic>.from(updated);
-            }
-
-            if (!silent) {
-              isLoading = false;
-            }
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            // errorMessage = "API error: ${response.statusCode}";
+            errorMessage = "No devices found.";
             isLoading = false;
           });
         }
+        return;
       }
-    } catch (e) {
+
+      final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
+            (d) => d["deviceid#topic"].toString() == "1#WS/Campus/1",
+            orElse: () => devices.first,
+          );
+
       if (mounted) {
         setState(() {
-          // errorMessage = "Error: $e";
+          if (selectedDevice == null) {
+            selectedDevice = demoDevice;
+          } else {
+            final updated = devices.firstWhere(
+              (d) =>
+                  d["deviceid#topic"].toString() ==
+                  selectedDevice?["deviceid#topic"].toString(),
+              orElse: () => demoDevice,
+            );
+            selectedDevice = Map<String, dynamic>.from(updated);
+          }
+
+          if (!silent) {
+            isLoading = false;
+          }
+        });
+      }
+    } else {
+      if (mounted) {
+        setState(() {
           isLoading = false;
         });
       }
     }
-  }
-
-  Future<bool> _getUserLocationAndFindNearest() async {
-    try {
-      double userLat = 0, userLon = 0;
-
-      if (kIsWeb) {
-        final completer = Completer<Position>();
-        try {
-          html.window.navigator.geolocation?.getCurrentPosition().then((pos) {
-            final coords = pos.coords;
-            completer.complete(Position(
-              latitude: coords?.latitude?.toDouble() ?? 0,
-              longitude: coords?.longitude?.toDouble() ?? 0,
-              timestamp: DateTime.now(),
-              accuracy: 0,
-              altitude: 0,
-              heading: 0,
-              speed: 0,
-              speedAccuracy: 0,
-              altitudeAccuracy: 0,
-              headingAccuracy: 0,
-            ));
-          }).catchError((e) {
-            completer.completeError("Location blocked");
-          });
-          final position = await completer.future;
-          userLat = position.latitude;
-          userLon = position.longitude;
-        } catch (_) {
-          return false;
-        }
-      } else {
-        LocationPermission permission = await Geolocator.checkPermission();
-        if (permission == LocationPermission.denied ||
-            permission == LocationPermission.deniedForever) {
-          permission = await Geolocator.requestPermission();
-          if (permission == LocationPermission.denied ||
-              permission == LocationPermission.deniedForever) {
-            return false;
-          }
-        }
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
-        userLat = position.latitude;
-        userLon = position.longitude;
-      }
-
-      Map<String, dynamic>? nearest;
-      double minDist = double.infinity;
-
-      for (var device in devices) {
-        double lat = double.tryParse(device["Latitude"]?.toString() ?? "") ?? 0;
-        double lon =
-            double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
-        if (lat == 0 && lon == 0) continue;
-
-        double distance = _calculateDistance(userLat, userLon, lat, lon);
-        if (distance < minDist) {
-          minDist = distance;
-          nearest = Map<String, dynamic>.from(device);
-        }
-      }
-
-      if (mounted && nearest != null) {
-        setState(() {
-          nearestDevice = nearest;
-          selectedDevice = nearestDevice;
-          errorMessage = null;
-        });
-      }
-      return true;
-    } catch (e) {
-      debugPrint("Error in location/nearest: $e");
-      return false;
+  } catch (e) {
+    if (mounted) {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
+}
 
+Future<bool> _getUserLocationAndFindNearest() async {
+  if (lastLocationCheck != null &&
+      DateTime.now().difference(lastLocationCheck!) < cacheDuration &&
+      cachedNearest != null) {
+   // debugPrint("Using cached nearest device");
+    if (mounted) {
+      setState(() {
+        nearestDevice = cachedNearest;
+        selectedDevice = cachedNearest;
+        errorMessage = null;
+      });
+    }
+    return true;
+  }
+
+  try {
+    double userLat = 0, userLon = 0;
+
+    if (kIsWeb) {
+      final completer = Completer<Position>();
+      try {
+        html.window.navigator.geolocation?.getCurrentPosition().then((pos) {
+          final coords = pos.coords;
+          completer.complete(Position(
+            latitude: coords?.latitude?.toDouble() ?? 0,
+            longitude: coords?.longitude?.toDouble() ?? 0,
+            timestamp: DateTime.now(),
+            accuracy: 0,
+            altitude: 0,
+            heading: 0,
+            speed: 0,
+            speedAccuracy: 0,
+            altitudeAccuracy: 0,
+            headingAccuracy: 0,
+          ));
+        }).catchError((e) {
+          completer.completeError("Location blocked");
+        });
+        final position = await completer.future;
+        userLat = position.latitude;
+        userLon = position.longitude;
+      } catch (_) {
+        return false;
+      }
+    } else {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          return false;
+        }
+      }
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
+      userLat = position.latitude;
+      userLon = position.longitude;
+    }
+
+    Map<String, dynamic>? nearest;
+    double minDist = double.infinity;
+
+    for (var device in devices) {
+      double lat = double.tryParse(device["Latitude"]?.toString() ?? "") ?? 0;
+      double lon =
+          double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
+      if (lat == 0 && lon == 0) continue;
+
+      double distance = _calculateDistance(userLat, userLon, lat, lon);
+      if (distance < minDist) {
+        minDist = distance;
+        nearest = Map<String, dynamic>.from(device);
+      }
+    }
+
+    if (mounted && nearest != null) {
+      setState(() {
+        nearestDevice = nearest;
+        selectedDevice = nearestDevice;
+        errorMessage = null;
+      });
+      
+      lastLocationCheck = DateTime.now();
+      cachedNearest = nearest;
+    }
+    return true;
+  } catch (e) {
+    debugPrint("Error in location/nearest: $e");
+    return false;
+  }
+}
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
     const R = 6371;
