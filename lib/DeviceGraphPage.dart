@@ -5710,6 +5710,45 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: children,
       );
+    } else if (widget.deviceName.startsWith('SV')) {
+      Map<String, String> parameterLabels = {
+        'CurrentTemperature': 'Temperature',
+        'CurrentHumidity': 'Humidity',
+        'LightIntensity': 'Light Intensity',
+        'WindSpeed': 'Wind Speed',
+        'AtmPressure': 'Pressure',
+        'WindDirection': 'Wind Direction',
+        'RainfallHourly': 'Rainfall'
+      };
+      List<String> includedParameters = parameterLabels.keys.toList();
+
+      List<Widget> children = svParametersData.entries
+          .where((entry) => includedParameters.contains(entry.key))
+          .map((entry) {
+        String label = parameterLabels[entry.key] ?? entry.key;
+        double? current =
+            entry.value.isNotEmpty ? entry.value.last.value : null;
+        String unit = '';
+        if (label == 'Temperature')
+          unit = '°C';
+        else if (label == 'Humidity')
+          unit = '%';
+        else if (label == 'Light Intensity')
+          unit = 'lux';
+        else if (label == 'Rainfall' || label == 'Rainfall Minutely')
+          unit = 'mm';
+        else if (label == 'Wind Speed')
+          unit = 'm/s';
+        else if (label == 'Pressure')
+          unit = 'hpa';
+        else if (label == 'Wind Direction') unit = '°';
+        return _buildParamStat(label, current, null, null, unit, isDarkMode,
+            onTap: () => _scrollToChart(label));
+      }).toList();
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: children,
+      );
     } else if (widget.deviceName.startsWith('VD')) {
       Map<String, String> parameterLabels = {
         'CurrentTemperature': 'Temperature',
