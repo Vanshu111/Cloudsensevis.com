@@ -395,7 +395,7 @@ class _HomePageState extends State<HomePage> {
   }
 
 DateTime? lastLocationCheck;
-Duration cacheDuration = const Duration(seconds: 3); 
+Duration cacheDuration = const Duration(seconds: 300); 
 Map<String, dynamic>? cachedNearest;
 
 Future<void> fetchDevicesAndNearest({bool silent = false}) async {
