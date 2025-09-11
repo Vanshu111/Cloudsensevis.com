@@ -370,32 +370,6 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                         ],
                       ),
                     ),
-                    PopupMenuItem(
-                      value: 'theme',
-                      child: Row(
-                        children: [
-                          Icon(
-                            isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                            color: isDarkMode ? Colors.white : Colors.black,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          const Text('Theme'),
-                        ],
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'share',
-                      child: Row(
-                        children: [
-                          Icon(Icons.share,
-                              color: isDarkMode ? Colors.white : Colors.black,
-                              size: 20),
-                          const SizedBox(width: 8),
-                          const Text('Share'),
-                        ],
-                      ),
-                    ),
                   ],
                   PopupMenuItem(
                     value: 'logout',
