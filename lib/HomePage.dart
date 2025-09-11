@@ -100,7 +100,6 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _fetchDeviceData();
     fetchDevicesAndNearest();
     _pollingTimer = Timer.periodic(const Duration(seconds: 59), (timer) {
       fetchDevicesAndNearest(silent: true);
@@ -113,34 +112,7 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Future<void> _fetchDeviceData() async {
-    try {
-      final response = await http.get(
-        Uri.parse(
-          'https://xa9ry8sls0.execute-api.us-east-1.amazonaws.com/CloudSense_device_activity_api_function',
-        ),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final wsDevices = data['WS_Device_Activity'] ?? [];
-        final awadhDevices = data['Awadh_Jio_Device_Activity'] ?? [];
-        final weatherDevices = data['weather_Device_Activity'] ?? [];
-        final totalCount =
-            wsDevices.length + awadhDevices.length + weatherDevices.length;
-
-        if (mounted) {
-          setState(() {
-            _totalDevices = totalCount;
-          });
-        }
-      } else {
-        print('Failed to load device data. Status: ${response.statusCode}');
-      }
-    } catch (e) {
-      // print('Error fetching device data: $e');
-    }
-  }
+ 
 
   Future<void> _handleLogout() async {
     try {
@@ -442,7 +414,7 @@ class _HomePageState extends State<HomePage> {
         }
 
         final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
-              (d) => d["deviceid#topic"].toString() == "11#WS/Campus/11",
+              (d) => d["deviceid#topic"].toString() == "1#WS/Campus/1",
               orElse: () => devices.first,
             );
 
@@ -1244,7 +1216,7 @@ class _HomePageState extends State<HomePage> {
                                           Widget deviceButton = TextButton(
                                             style: (selectedDevice?["deviceid#topic"]
                                                         .toString() ==
-                                                    "11#WS/Campus/11")
+                                                    "1#WS/Campus/1")
                                                 ? TextButton.styleFrom(
                                                     backgroundColor: !isDarkMode
                                                         ? Colors.white
@@ -1280,7 +1252,7 @@ class _HomePageState extends State<HomePage> {
                                             onPressed: () async {
                                               if (selectedDevice?["deviceid#topic"]
                                                       .toString() ==
-                                                  "11#WS/Campus/11") {
+                                                  "1#WS/Campus/1") {
                                                 // Check nearest
                                                 bool gotLocation =
                                                     await _getUserLocationAndFindNearest();
@@ -1311,7 +1283,7 @@ class _HomePageState extends State<HomePage> {
                                                           (d) =>
                                                               d["deviceid#topic"]
                                                                   .toString() ==
-                                                              "11#WS/Campus/11",
+                                                              "1#WS/Campus/1",
                                                           orElse: () =>
                                                               devices.first);
                                                   errorMessage = null;
@@ -1320,7 +1292,7 @@ class _HomePageState extends State<HomePage> {
                                             },
                                             child: selectedDevice?["deviceid#topic"]
                                                         .toString() ==
-                                                    "11#WS/Campus/11"
+                                                    "1#WS/Campus/1"
                                                 ? const Text(
                                                     "Check Nearest Device",
                                                     style: TextStyle(
