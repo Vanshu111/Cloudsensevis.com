@@ -9412,32 +9412,24 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             ],
                           ),
                         ),
-                      // Main content area
+                      
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              color: isDarkMode
-                                  ? Colors.blueGrey[900]
-                                  : Colors.grey[200],
-                              child: MediaQuery.of(context).size.width < 1200
-                                  ? SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child:
-                                          _buildHorizontalStatsRow(isDarkMode),
-                                    )
-                                  : Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        Expanded(
-                                          child: _buildHorizontalStatsRow(
-                                              isDarkMode),
-                                        ),
-                                      ],
-                                    ),
-                            ),
+                                Container(
+  padding: EdgeInsets.symmetric(vertical: 8.0),
+  color: isDarkMode ? Colors.blueGrey[900] : Colors.grey[200],
+  child: SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: MediaQuery.of(context).size.width,
+      ),
+      child: _buildHorizontalStatsRow(isDarkMode),
+    ),
+  ),
+),
                             Expanded(
                               child: SingleChildScrollView(
                                 controller:
