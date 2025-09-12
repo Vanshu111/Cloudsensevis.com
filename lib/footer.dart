@@ -10,7 +10,7 @@ class Footer extends StatelessWidget {
     final isWideScreen = screenWidth > 800;
 
     return Container(
-      color: isDarkMode ? Colors.grey.shade900 : Colors.teal.shade50,
+      color: isDarkMode ? Colors.blueGrey[900] : Colors.white,
       padding: EdgeInsets.symmetric(
         vertical: isWideScreen ? 16 : 12, // Reduced from 32/24 to 16/12
         horizontal: isWideScreen ? 84 : 16,
@@ -43,22 +43,6 @@ class Footer extends StatelessWidget {
               isDarkMode: isDarkMode,
               isWideScreen: isWideScreen,
             ),
-            // const SizedBox(height: 6), // Reduced from 12 to 6
-            // _buildContactItem(
-            //   icon: Icons.phone,
-            //   text: '+91 8124660891',
-            //   isDarkMode: isDarkMode,
-            //   isWideScreen: isWideScreen,
-            // ),
-            // const SizedBox(height: 24),
-            // Text(
-            //   '© 2025 Sensor Solutions. All rights reserved.',
-            //   textAlign: TextAlign.center,
-            //   style: TextStyle(
-            //     fontSize: isWideScreen ? 14 : 12,
-            //     color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-            //   ),
-            // ),
           ],
         ),
       ),
