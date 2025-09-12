@@ -182,7 +182,9 @@ class DataLoggerPage extends StatelessWidget {
         // Text section with grey background and overlay
         Container(
           width: double.infinity,
-          color: const Color.fromARGB(255, 78, 127, 133),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color.fromARGB(255, 28, 59, 75) // Dark mode color
+              : const Color.fromARGB(255, 78, 127, 133),
           child: Stack(
             children: [
               // Overlay
@@ -246,7 +248,9 @@ class DataLoggerPage extends StatelessWidget {
         // Text section with grey background and overlay
         Container(
           width: double.infinity,
-          color: const Color.fromARGB(255, 78, 127, 133),
+          color: Theme.of(context).brightness == Brightness.dark
+              ? const Color.fromARGB(255, 28, 59, 75) // Dark mode color
+              : const Color.fromARGB(255, 78, 127, 133),
           child: Stack(
             children: [
               // Overlay
