@@ -2608,9 +2608,7 @@ class _HomePageState extends State<HomePage> {
               elevation: 4,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
-              color: isDarkMode
-                  ? Colors.grey[800]
-                  : const Color.fromARGB(255, 224, 220, 220),
+              color: isDarkMode ? Colors.grey[800] : Colors.white,
               child: Padding(
                 padding: cardPadding,
                 child: Column(

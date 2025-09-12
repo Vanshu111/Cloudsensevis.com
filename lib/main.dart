@@ -1,20 +1,15 @@
 import 'dart:convert';
-import 'package:cloud_sense_webapp/Product_ATRH.dart';
+import 'package:cloud_sense_webapp/Product.dart';
 import 'package:cloud_sense_webapp/AccountInfo.dart';
 import 'package:cloud_sense_webapp/AdminPage';
 import 'package:cloud_sense_webapp/DeviceGraphPage.dart';
 import 'package:cloud_sense_webapp/DeviceListPage.dart';
 import 'package:cloud_sense_webapp/LoginPage.dart';
-import 'package:cloud_sense_webapp/Product_DataLogger.dart';
-import 'package:cloud_sense_webapp/Product_Gateway.dart';
-import 'package:cloud_sense_webapp/Product_Probe.dart';
-import 'package:cloud_sense_webapp/Product_RainGauge.dart';
 import 'package:cloud_sense_webapp/buffalodata.dart';
 import 'package:cloud_sense_webapp/cowdata.dart';
 import 'package:cloud_sense_webapp/devicelocationinfo.dart';
 import 'package:cloud_sense_webapp/GPS.dart';
 import 'package:cloud_sense_webapp/devicemap.dart';
-import 'package:cloud_sense_webapp/Product_WindSensors.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -583,13 +578,15 @@ class MyApp extends StatelessWidget {
         '/login': (context) => SignInSignUpScreen(),
         '/accountinfo': (context) => AccountInfoPage(),
         '/deviceinfo': (context) => MapPage(),
-        '/raingauge': (context) => ProductPage(),
-        '/windsensor': (context) => UltrasonicSensorPage(),
-        '/gateway': (context) => GatewayPage(),
-        '/probe': (context) => ProbePage(),
+               "/probe": (_) => const ProductPage(sensorIndex: 0),
+        "/atrh": (_) => const ProductPage(sensorIndex: 1),
+        "/windsensor": (_) => const ProductPage(sensorIndex: 2),
+        "/raingauge": (_) => const ProductPage(sensorIndex: 3),
+        "/datalogger": (_) => const ProductPage(sensorIndex: 4),
+        "/gateway": (_) => const ProductPage(sensorIndex: 5),
+
         '/admin': (context) => AdminPage(),
-        '/datalogger': (context) => DataLoggerPage(),
-        '/atrh': (context) => ATRHSensorPage(),
+      
         '/devicelist': (context) => DataDisplayPage(),
         '/devicelocationinfo': (context) => DeviceActivityPage(),
         '/devicemapinfo': (context) => DeviceMapScreen(),
