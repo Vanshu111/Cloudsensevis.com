@@ -30,6 +30,8 @@ import 'package:url_strategy/url_strategy.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 // Initialize Flutter local notifications plugin
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -56,20 +58,21 @@ Future<void> showNotification(RemoteMessage message) async {
   AndroidNotification? android = message.notification?.android;
 
   if (notification != null && android != null) {
-    String? title = notification.title ?? "Notification";
+    String? title = notification.title ?? "Device Anomaly Detected";
     String? body = notification.body;
-    String? payload =
-        message.data['anomaly'] ?? message.data['gps_movement'] ?? '';
+    String deviceId = message.data['device_id'] ?? '';
+    const String topic = 'WS/Campus'; // Hardcoded for CP devices
+    String anomaly =
+        message.data['anomaly'] ?? 'Anomaly Detected'; // Default value
+    String timestamp = message.data['timestamp'] ??
+        DateTime.now().toIso8601String(); // Default to current time
 
-    if (message.data.containsKey('gps_movement')) {
-      title = "GPS Device Movement";
-      body =
-          "Device ${message.data['device_id']} has moved: ${message.data['gps_movement']}";
-    } else if (message.data.containsKey('anomaly')) {
-      title = "Device Anomaly Detected";
-      body =
-          "Anomaly detected on device ${message.data['device_id']}: ${message.data['anomaly']} at ${message.data['timestamp']}";
-    }
+    // For CP devices, format deviceId as CP001, CP002, etc.
+    String sensorName = 'CP${deviceId.padLeft(3, '0')}';
+    body = "Anomaly detected on device $sensorName";
+
+    // Create payload for navigation
+    String payload = '$deviceId#$topic#$anomaly#$timestamp';
 
     const AndroidNotificationDetails androidPlatformChannelSpecifics =
         AndroidNotificationDetails(
@@ -187,8 +190,17 @@ Future<void> manageNotificationSubscription() async {
   String? email = prefs.getString('email');
   FirebaseMessaging messaging = FirebaseMessaging.instance;
 
+  if (email == null) {
+    print("No user logged in. Skipping notification subscriptions.");
+    return;
+  }
+
   try {
     String? token = await messaging.getToken();
+    if (token == null) {
+      print("Failed to retrieve FCM token.");
+      return;
+    }
 
     print("User logged in: $email");
     print("FCM Token: $token");
@@ -197,7 +209,7 @@ Future<void> manageNotificationSubscription() async {
       print("GPS notifications allowed for this user.");
       bool? isGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
       if (isGpsSubscribed != true) {
-        await subscribeToGpsSnsTopic(token!);
+        await subscribeToGpsSnsTopic(token);
         await prefs.setBool('isGpsTokenSubscribed', true);
       } else {
         print("Already subscribed to GPS SNS topic.");
@@ -205,14 +217,14 @@ Future<void> manageNotificationSubscription() async {
       // Ensure anomaly is unsubscribed for this user
       bool? wasAnomalySubscribed = prefs.getBool('isAnomalyTokenSubscribed');
       if (wasAnomalySubscribed == true) {
-        await unsubscribeFromSnsTopic(token!);
+        await unsubscribeFromSnsTopic(token);
         await prefs.remove('isAnomalyTokenSubscribed');
       }
-    } else if (adminEmails.contains(email!.trim().toLowerCase())) {
+    } else if (adminEmails.contains(email.trim().toLowerCase())) {
       print("Anomaly notifications allowed for admin user.");
       bool? isAnomalySubscribed = prefs.getBool('isAnomalyTokenSubscribed');
       if (isAnomalySubscribed != true) {
-        await subscribeToSnsTopic(token!);
+        await subscribeToSnsTopic(token);
         await prefs.setBool('isAnomalyTokenSubscribed', true);
       } else {
         print("Already subscribed to anomaly SNS topic.");
@@ -220,7 +232,7 @@ Future<void> manageNotificationSubscription() async {
       // Ensure GPS is unsubscribed for admin users
       bool? isGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
       if (isGpsSubscribed == true) {
-        await unsubscribeFromGpsSnsTopic(token!);
+        await unsubscribeFromGpsSnsTopic(token);
         await prefs.remove('isGpsTokenSubscribed');
       }
     } else {
@@ -228,13 +240,13 @@ Future<void> manageNotificationSubscription() async {
           "User is not an admin. Unsubscribing from anomaly notifications if previously subscribed.");
       bool? wasAnomalySubscribed = prefs.getBool('isAnomalyTokenSubscribed');
       if (wasAnomalySubscribed == true) {
-        await unsubscribeFromSnsTopic(token!);
+        await unsubscribeFromSnsTopic(token);
         await prefs.remove('isAnomalyTokenSubscribed');
       }
       // Ensure GPS is unsubscribed for non-authorized users
       bool? isGpsSubscribed = prefs.getBool('isGpsTokenSubscribed');
       if (isGpsSubscribed == true) {
-        await unsubscribeFromGpsSnsTopic(token!);
+        await unsubscribeFromGpsSnsTopic(token);
         await prefs.remove('isGpsTokenSubscribed');
       }
     }
@@ -260,7 +272,12 @@ Future<void> subscribeToSnsTopic(String fcmToken) async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
   String? email = prefs.getString('email');
 
-  if (!isAdminUser(email!)) {
+  if (email == null) {
+    print("User is not logged in. Skipping anomaly SNS subscription.");
+    return;
+  }
+
+  if (!isAdminUser(email)) {
     print("User is not an admin. Skipping anomaly SNS subscription.");
     return;
   }
@@ -349,8 +366,33 @@ Future<void> setupNotifications() async {
 
   await flutterLocalNotificationsPlugin.initialize(
     initSettings,
-    onDidReceiveNotificationResponse: (NotificationResponse details) {
-      print("User tapped on notification: ${details.payload}");
+    onDidReceiveNotificationResponse: (NotificationResponse details) async {
+      if (details.payload != null) {
+        final parts = details.payload!.split('#');
+        if (parts.isNotEmpty) {
+          final deviceId = parts[0];
+          const topic = 'WS/Campus'; // Hardcoded for CP devices
+          const String sequentialName = 'IIT Ropar Sensor';
+          final sensorName = 'CP${deviceId.padLeft(3, '0')}';
+
+          // Directly navigate to DeviceGraphPage
+          if (navigatorKey.currentState != null) {
+            navigatorKey.currentState!.push(
+              MaterialPageRoute(
+                builder: (context) => DeviceGraphPage(
+                  deviceName: sensorName,
+                  sequentialName: sequentialName,
+                  backgroundImagePath: 'assets/backgroundd.jpg',
+                ),
+              ),
+            );
+          } else {
+            print("Navigator state not available, cannot navigate.");
+          }
+        } else {
+          print("Invalid notification payload: ${details.payload}");
+        }
+      }
     },
   );
 }
@@ -446,12 +488,39 @@ void main() async {
   }
 
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
-    alert: false,
-    badge: false,
-    sound: false,
+    alert: true,
+    badge: true,
+    sound: true,
   );
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // Handle notifications when app is opened from background or terminated
+  // Handle notifications when app is opened from background or terminated
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
+    if (message.data.isNotEmpty) {
+      String deviceId = message.data['device_id'] ?? '';
+      const String topic = 'WS/Campus'; // Hardcoded for CP devices
+      const String sequentialName = 'IIT Ropar Sensor';
+      final sensorName = 'CP${deviceId.padLeft(3, '0')}';
+
+      // Directly navigate to DeviceGraphPage
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (navigatorKey.currentState != null) {
+          navigatorKey.currentState!.push(
+            MaterialPageRoute(
+              builder: (context) => DeviceGraphPage(
+                deviceName: sensorName,
+                sequentialName: sequentialName,
+                backgroundImagePath: 'assets/backgroundd.jpg',
+              ),
+            ),
+          );
+        } else {
+          print("Navigator state not available, cannot navigate.");
+        }
+      });
+    }
+  });
 
   try {
     await Amplify.addPlugin(AmplifyAuthCognito());
@@ -493,6 +562,7 @@ class MyApp extends StatelessWidget {
     final themeProvider = Provider.of<ThemeProvider>(context);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Cloud Sense Vis',
       debugShowCheckedModeBanner: false,
       theme: themeProvider.isDarkMode
