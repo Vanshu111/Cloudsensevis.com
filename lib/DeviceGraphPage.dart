@@ -934,13 +934,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   bool hasNonZeroValues(List<dynamic> data,
       {bool includePrecipitation = true}) {
-    // Exclude precipitation from the zero check if `includePrecipitation` is false
     if (includePrecipitation) {
-      return data.isNotEmpty && data.any((entry) => entry.value != 0);
+      return data.isNotEmpty &&
+          data.any((entry) => entry.value != null && entry.value != 0);
     } else {
       return data.isNotEmpty &&
           data.any((entry) =>
-              entry.value != 0 && entry.type != 'precipitationProbability');
+              entry.value != null &&
+              entry.value != 0 &&
+              entry.type != 'precipitationProbability');
     }
   }
 
@@ -1233,8 +1235,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
           // Debug log to verify coordinates
           if (kDebugMode) {
-            print(
-                "Device $deviceIdTopic: lat=$lat, lon=$lon, lastReceivedTime=$lastReceivedTime, activityType=$activityType");
+            // print(
+            //     "Device $deviceIdTopic: lat=$lat, lon=$lon, lastReceivedTime=$lastReceivedTime, activityType=$activityType");
           }
 
           deviceStatuses.add(DeviceStatus(
@@ -3393,19 +3395,26 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return parametersData;
     }
 
-    // Collect all possible parameter keys from the first item, excluding non-numeric fields
-    final sampleItem = items.first;
-    final parameterKeys = sampleItem.keys.where((key) {
-      // Exclude non-numeric fields like TimeStamp, Topic, IMEINumber, DeviceId, Latitude, Longitude
-      return ![
-        'TimeStamp',
-        'Topic',
-        'IMEINumber',
-        'DeviceId',
-        'Latitude',
-        'Longitude'
-      ].contains(key);
-    }).toList();
+    // ✅ FIX: Collect ALL possible parameter keys from EVERY item (not just first)
+    Set<String> allParameterKeys = {};
+    for (var item in items) {
+      if (item is Map<String, dynamic>) {
+        item.keys.forEach((key) {
+          // Exclude non-numeric fields
+          if (![
+            'TimeStamp',
+            'Topic',
+            'IMEINumber',
+            'DeviceId',
+            'Latitude',
+            'Longitude'
+          ].contains(key)) {
+            allParameterKeys.add(key);
+          }
+        });
+      }
+    }
+    final parameterKeys = allParameterKeys.toList();
 
     // Initialize ChartData lists for each parameter
     for (var key in parameterKeys) {
@@ -3426,18 +3435,32 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       }
     }
 
-    // Update _lastcfBattery with the latest BatteryVoltage (from the last item)
+    // Update _lastvdBattery with the latest BatteryVoltage (from the last item)
     for (var item in items.reversed) {
       if (item != null && item['BatteryVoltage'] != null) {
         _lastvdBattery =
             double.tryParse(item['BatteryVoltage'].toString()) ?? 0.0;
-
         break; // Exit after finding the latest non-null value
       }
     }
 
     // Remove parameters with empty lists (i.e., all values were null)
     parametersData.removeWhere((key, value) => value.isEmpty);
+
+    // ✅ Print statement to debug parsing (focus on RainfallHourlyComulative)
+    print('=== VD Parsing Debug ===');
+    print('Total items processed: ${items.length}');
+    print(
+        'Parameter keys found: ${parameterKeys.length} - ${parameterKeys.join(', ')}');
+    print(
+        'RainfallHourlyComulative list length: ${parametersData['RainfallHourlyComulative']?.length ?? 0}');
+    if (parametersData['RainfallHourlyComulative'] != null) {
+      parametersData['RainfallHourlyComulative']!.forEach((dataPoint) {
+        print('  ${dataPoint.timestamp}: ${dataPoint.value}');
+      });
+    }
+    print('Total non-empty parameters: ${parametersData.length}');
+    print('=== End VD Parsing Debug ===');
 
     return parametersData;
   }
@@ -5393,6 +5416,9 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'displayName': 'Pressure',
         'unit': 'hPa',
       };
+    }
+    if (paramName == 'RainfallHourlyComulative') {
+      return {'displayName': 'Rainfall', 'unit': 'mm'};
     }
 
     // Handle pH explicitly to preserve "pH"
@@ -7766,55 +7792,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                                 ChartType.line,
                                                 isDarkMode);
                                           })
-                                          .where((widget) =>
-                                              widget != const SizedBox.shrink())
-                                          .toList(),
-                                    if (widget.deviceName.startsWith('KD'))
-                                      ...[
-                                        if (hasNonZeroValues(kdParametersData[
-                                                'CurrentTemperature'] ??
-                                            []))
-                                          _buildChartContainer(
-                                              'Temperature',
-                                              kdParametersData[
-                                                      'CurrentTemperature'] ??
-                                                  [],
-                                              '(°C)',
-                                              ChartType.line,
-                                              isDarkMode),
-                                        if (hasNonZeroValues(
-                                            kdParametersData['AtmPressure'] ??
-                                                []))
-                                          _buildChartContainer(
-                                              'Pressure',
-                                              kdParametersData['AtmPressure'] ??
-                                                  [],
-                                              '(hPa)',
-                                              ChartType.line,
-                                              isDarkMode),
-                                        if (hasNonZeroValues(kdParametersData[
-                                                'CurrentHumidity'] ??
-                                            []))
-                                          _buildChartContainer(
-                                              'Humidity',
-                                              kdParametersData[
-                                                      'CurrentHumidity'] ??
-                                                  [],
-                                              '(%)',
-                                              ChartType.line,
-                                              isDarkMode),
-                                        if (hasNonZeroValues(kdParametersData[
-                                                'LightIntensity'] ??
-                                            []))
-                                          _buildChartContainer(
-                                              'Light Intensity',
-                                              kdParametersData[
-                                                      'LightIntensity'] ??
-                                                  [],
-                                              '(Lux)',
-                                              ChartType.line,
-                                              isDarkMode),
-                                      ]
                                           .where((widget) =>
                                               widget != const SizedBox.shrink())
                                           .toList(),
