@@ -456,7 +456,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         'Humidity': vdParametersData['CurrentHumidity'] ?? [],
                         'Light Intensity':
                             vdParametersData['LightIntensity'] ?? [],
-                        'Rainfall': vdParametersData['RainfallHourly'] ?? [],
+                        'Rainfall':
+                            vdParametersData['RainfallHourlyComulative'] ?? [],
                       },
                     ),
                   if (widget.deviceName.startsWith('CP'))
@@ -547,11 +548,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         totalRainfall = _calculateTotalRainfall(
                             MYParametersData['RainfallHourly']!);
                       } else if (widget.deviceName.startsWith('VD') &&
-                          vdParametersData['RainfallHourly'] != null &&
-                          vdParametersData['RainfallHourly']!.isNotEmpty) {
+                          vdParametersData['RainfallHourlyComulative'] !=
+                              null &&
+                          vdParametersData['RainfallHourlyComulative']!
+                              .isNotEmpty) {
                         showTotalRainfall = true;
                         totalRainfall = _calculateTotalRainfall(
-                            vdParametersData['RainfallHourly']!);
+                            vdParametersData['RainfallHourlyComulative']!);
                       } else if (widget.deviceName.startsWith('CF') &&
                           cfParametersData['RainfallHourly'] != null &&
                           cfParametersData['RainfallHourly']!.isNotEmpty) {
@@ -5821,7 +5824,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentTemperature': 'Temperature',
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
-        'RainfallHourly': 'Rainfall',
+        'RainfallHourlyComulative': 'Rainfall',
       };
       List<String> includedParameters = parameterLabels.keys.toList();
 
@@ -6682,7 +6685,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                                           'LightIntensity'] ??
                                                       [],
                                               'Rainfall': vdParametersData[
-                                                      'RainfallHourly'] ??
+                                                      'RainfallHourlyComulative'] ??
                                                   [],
                                             },
                                           ),
@@ -6777,17 +6780,16 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                                       MYParametersData[
                                                           'RainfallHourly']!);
                                             } else if (widget.deviceName.startsWith('VD') &&
-                                                vdParametersData['RainfallHourly'] !=
+                                                vdParametersData['RainfallHourlyComulative'] !=
                                                     null &&
-                                                vdParametersData['RainfallHourly']!
+                                                vdParametersData['RainfallHourlyComulative']!
                                                     .isNotEmpty) {
                                               showTotalRainfall = true;
                                               totalRainfall =
                                                   _calculateTotalRainfall(
                                                       vdParametersData[
-                                                          'RainfallHourly']!);
-                                            } else if (widget.deviceName
-                                                    .startsWith('CF') &&
+                                                          'RainfallHourlyComulative']!);
+                                            } else if (widget.deviceName.startsWith('CF') &&
                                                 cfParametersData['RainfallHourly'] !=
                                                     null &&
                                                 cfParametersData['RainfallHourly']!
@@ -7502,7 +7504,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'CurrentTemperature',
                                               'AtmPressure',
                                               'CurrentHumidity',
-                                              'LightIntensity'
+                                              'LightIntensity',
                                             ].contains(paramName)) {
                                               return const SizedBox
                                                   .shrink(); // Skip these as they are handled above
@@ -7751,7 +7753,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'CurrentTemperature',
                                               'AtmPressure',
                                               'CurrentHumidity',
-                                              'LightIntensity'
+                                              'LightIntensity',
+                                              'RainfallHourlyComulative',
                                             ].contains(paramName)) {
                                               return const SizedBox
                                                   .shrink(); // Skip these as they are handled above
@@ -9412,24 +9415,26 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             ],
                           ),
                         ),
-                      
+
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                                Container(
-  padding: EdgeInsets.symmetric(vertical: 8.0),
-  color: isDarkMode ? Colors.blueGrey[900] : Colors.grey[200],
-  child: SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: MediaQuery.of(context).size.width,
-      ),
-      child: _buildHorizontalStatsRow(isDarkMode),
-    ),
-  ),
-),
+                            Container(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              color: isDarkMode
+                                  ? Colors.blueGrey[900]
+                                  : Colors.grey[200],
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minWidth: MediaQuery.of(context).size.width,
+                                  ),
+                                  child: _buildHorizontalStatsRow(isDarkMode),
+                                ),
+                              ),
+                            ),
                             Expanded(
                               child: SingleChildScrollView(
                                 controller:
@@ -10024,7 +10029,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                                     'CurrentTemperature',
                                                     'AtmPressure',
                                                     'CurrentHumidity',
-                                                    'LightIntensity'
+                                                    'LightIntensity',
+                                                    'RainfallHourlyComulative',
                                                   ].contains(paramName)) {
                                                     return const SizedBox
                                                         .shrink(); // Skip these as they are handled above

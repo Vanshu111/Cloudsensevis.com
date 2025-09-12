@@ -125,7 +125,7 @@ class _AdminPageState extends State<AdminPage> {
 
         if (failedDevices[deviceId]! >= 5) {
           if (kDebugMode) {
-            print("Skipping device $deviceId due to repeated failures");
+            // print("Skipping device $deviceId due to repeated failures");
           }
           return;
         }
@@ -244,13 +244,13 @@ class _AdminPageState extends State<AdminPage> {
           } else {
             failedDevices[deviceId] = failedDevices[deviceId]! + 1;
             if (kDebugMode) {
-              print("Flagging API error for $deviceId: ${response.statusCode}");
+              // print("Flagging API error for $deviceId: ${response.statusCode}");
             }
           }
         } catch (e) {
           failedDevices[deviceId] = failedDevices[deviceId]! + 1;
           if (kDebugMode) {
-            print("Flagging API Exception for $deviceId: $e");
+            // print("Flagging API Exception for $deviceId: $e");
           }
           if (failedDevices[deviceId]! >= 5) {
             _toast("Persistent error fetching anomalies for device $deviceId. Skipping further attempts.");
@@ -273,8 +273,8 @@ class _AdminPageState extends State<AdminPage> {
       setState(() {});
     }
     if (kDebugMode) {
-      print("Notifications: $notifications");
-      print("Failed devices: $failedDevices");
+      // print("Notifications: $notifications");
+      // print("Failed devices: $failedDevices");
     }
   }
 
@@ -342,10 +342,10 @@ class _AdminPageState extends State<AdminPage> {
       final period = notification['period'] ?? notification['timestamp'] ?? "N/A";
 
       if (kDebugMode) {
-        print("Handling notification tap for payload: $payload");
-        print("Device: $d");
-        print("Anomaly: $anomalyMessage");
-        print("Period: $period");
+        // print("Handling notification tap for payload: $payload");
+        // print("Device: $d");
+        // print("Anomaly: $anomalyMessage");
+        // print("Period: $period");
       }
 
       showDialog(
@@ -392,7 +392,7 @@ class _AdminPageState extends State<AdminPage> {
     } else {
       _toast("Device not found for $deviceIdTopic");
       if (kDebugMode) {
-        print("Device not found for deviceIdTopic: $deviceIdTopic");
+        // print("Device not found for deviceIdTopic: $deviceIdTopic");
       }
     }
   }
@@ -839,14 +839,14 @@ void _showDeviceNotificationsDialog(BuildContext dialogContext, String deviceIdT
 
         final DateTime? lastTime = parseDate(device['TimeStamp_IST']);
         if (kDebugMode && lastTime == null) {
-          print("Failed to parse TimeStamp_IST: ${device['TimeStamp_IST']} for device $deviceIdTopic");
+          // print("Failed to parse TimeStamp_IST: ${device['TimeStamp_IST']} for device $deviceIdTopic");
         }
         bool isActive = false;
         if (lastTime != null) {
           final diff = DateTime.now().difference(lastTime);
           isActive = diff.inHours <= 24;
           if (kDebugMode) {
-            print("Device $deviceIdTopic: TimeStamp_IST=${device['TimeStamp_IST']}, Parsed=$lastTime, Diff=${diff.inHours} hours, isActive=$isActive");
+            // print("Device $deviceIdTopic: TimeStamp_IST=${device['TimeStamp_IST']}, Parsed=$lastTime, Diff=${diff.inHours} hours, isActive=$isActive");
           }
         }
 
@@ -872,7 +872,7 @@ void _showDeviceNotificationsDialog(BuildContext dialogContext, String deviceIdT
       });
 
       if (kDebugMode) {
-        print("Fetched devices: $devices");
+        // print("Fetched devices: $devices");
       }
     } else {
       setState(() => isLoading = false);
