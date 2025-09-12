@@ -1559,7 +1559,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           'https://d3g5fo66jwc4iw.cloudfront.net/colonelfarmdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
     } else if (widget.deviceName.startsWith('VD')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/vanixdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
+          'https://d3g5fo66jwc4iw.cloudfront.net/vanixdata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
     } else if (widget.deviceName.startsWith('SV')) {
       apiUrl =
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/svpudata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
@@ -1568,7 +1568,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/kargildata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
     } else if (widget.deviceName.startsWith('NA')) {
       apiUrl =
-          'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/ssmetnarldata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
+          'https://d3g5fo66jwc4iw.cloudfront.net/ssmetnarldata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
     } else if (widget.deviceName.startsWith('KJ')) {
       apiUrl =
           'https://gtk47vexob.execute-api.us-east-1.amazonaws.com/kjscedata?deviceid=$deviceId&startdate=$startdate&enddate=$enddate';
