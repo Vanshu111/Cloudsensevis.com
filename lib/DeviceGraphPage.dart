@@ -1284,6 +1284,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (topic.contains('NARL')) return 'NA';
     if (topic.contains('KJSCE')) return 'KJ';
     if (topic.contains('KARGIL/')) return 'KD';
+    if (topic.contains('WS/Vanix/02')) return 'VD';
 
     if (topic.contains('Mysuru')) return 'MY';
     return 'unknown';
