@@ -715,7 +715,7 @@ static Widget _buildBannerButton(
  Widget featureItem(String text, bool isDarkMode) {
   return Card(
     elevation: 3,
-    color: isDarkMode ? Colors.grey[900] : Colors.white,
+    color: isDarkMode ? const Color.fromARGB(255, 44, 44, 44) : const Color.fromARGB(255, 243, 243, 243),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
