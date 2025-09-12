@@ -10,7 +10,9 @@ class Footer extends StatelessWidget {
     final isWideScreen = screenWidth > 800;
 
     return Container(
-      color: isDarkMode ? Colors.blueGrey[900] : Colors.white,
+      color: isDarkMode
+          ? const Color.fromARGB(255, 18, 33, 41)
+          : Colors.teal.shade50,
       padding: EdgeInsets.symmetric(
         vertical: isWideScreen ? 16 : 12, // Reduced from 32/24 to 16/12
         horizontal: isWideScreen ? 84 : 16,

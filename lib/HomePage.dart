@@ -100,7 +100,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-  
+
     fetchDevicesAndNearest();
     _pollingTimer = Timer.periodic(const Duration(seconds: 59), (timer) {
       fetchDevicesAndNearest(silent: true);
@@ -112,8 +112,6 @@ class _HomePageState extends State<HomePage> {
     _pollingTimer?.cancel();
     super.dispose();
   }
-
- 
 
   Future<void> _handleLogout() async {
     try {
@@ -394,187 +392,166 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-DateTime? lastLocationCheck;
-Duration cacheDuration = const Duration(seconds: 300); 
-Map<String, dynamic>? cachedNearest;
+  DateTime? lastLocationCheck;
+  Duration cacheDuration = const Duration(seconds: 300);
+  Map<String, dynamic>? cachedNearest;
 
-Future<void> fetchDevicesAndNearest({bool silent = false}) async {
-  try {
-    const url =
-        "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity";
-    final response = await http.get(Uri.parse(url));
+  Future<void> fetchDevicesAndNearest({bool silent = false}) async {
+    try {
+      const url =
+          "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity";
+      final response = await http.get(Uri.parse(url));
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      devices = data["devices"] ?? [];
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        devices = data["devices"] ?? [];
 
-      // 🔹 Total devices count
-      _totalDevices = devices.length;
+        // 🔹 Total devices count
+        _totalDevices = devices.length;
 
-      if (devices.isEmpty) {
+        if (devices.isEmpty) {
+          if (mounted) {
+            setState(() {
+              errorMessage = "No devices found.";
+              isLoading = false;
+            });
+          }
+          return;
+        }
+
+        final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
+              (d) => d["deviceid#topic"].toString() == "1#WS/Campus/1",
+              orElse: () => devices.first,
+            );
+
         if (mounted) {
           setState(() {
-            errorMessage = "No devices found.";
+            // update selected device
+            if (selectedDevice == null) {
+              selectedDevice = demoDevice;
+            } else {
+              final updated = devices.firstWhere(
+                (d) =>
+                    d["deviceid#topic"].toString() ==
+                    selectedDevice?["deviceid#topic"].toString(),
+                orElse: () => demoDevice,
+              );
+              selectedDevice = Map<String, dynamic>.from(updated);
+            }
+
+            if (!silent) {
+              isLoading = false;
+            }
+          });
+        }
+      } else {
+        if (mounted) {
+          setState(() {
             isLoading = false;
           });
         }
-        return;
       }
-
-      final demoDevice = devices.cast<Map<String, dynamic>>().firstWhere(
-            (d) => d["deviceid#topic"].toString() == "1#WS/Campus/1",
-            orElse: () => devices.first,
-          );
-
-      if (mounted) {
-        setState(() {
-          // update selected device
-          if (selectedDevice == null) {
-            selectedDevice = demoDevice;
-          } else {
-            final updated = devices.firstWhere(
-              (d) =>
-                  d["deviceid#topic"].toString() ==
-                  selectedDevice?["deviceid#topic"].toString(),
-              orElse: () => demoDevice,
-            );
-            selectedDevice = Map<String, dynamic>.from(updated);
-          }
-
-          if (!silent) {
-            isLoading = false;
-          }
-        });
-      }
-    } else {
+    } catch (e) {
       if (mounted) {
         setState(() {
           isLoading = false;
         });
       }
     }
-  } catch (e) {
-    if (mounted) {
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-}
-
-
-DateTime? _parseTimestamp(String? ts) {
-  if (ts == null || ts.isEmpty) return null;
-
-  try {
-    // Format 1: dd-MM-yyyy HH:mm:ss
-    return DateFormat("dd-MM-yyyy HH:mm:ss").parse(ts);
-  } catch (_) {
-    try {
-      // Format 2: yyyy-MM-dd HH:mm:ss
-      return DateFormat("yyyy-MM-dd HH:mm:ss").parse(ts);
-    } catch (_) {
-      return null;
-    }
-  }
-}
-
-Future<bool> _getUserLocationAndFindNearest() async {
-  if (lastLocationCheck != null &&
-      DateTime.now().difference(lastLocationCheck!) < cacheDuration &&
-      cachedNearest != null) {
-    if (mounted) {
-      setState(() {
-        nearestDevice = cachedNearest;
-        selectedDevice = cachedNearest;
-        errorMessage = null;
-      });
-    }
-    return true;
   }
 
-  try {
-    double userLat = 0, userLon = 0;
-
-    if (kIsWeb) {
-      final completer = Completer<Position>();
-      try {
-        html.window.navigator.geolocation?.getCurrentPosition().then((pos) {
-          final coords = pos.coords;
-          completer.complete(Position(
-            latitude: coords?.latitude?.toDouble() ?? 0,
-            longitude: coords?.longitude?.toDouble() ?? 0,
-            timestamp: DateTime.now(),
-            accuracy: 0,
-            altitude: 0,
-            heading: 0,
-            speed: 0,
-            speedAccuracy: 0,
-            altitudeAccuracy: 0,
-            headingAccuracy: 0,
-          ));
-        }).catchError((e) {
-          completer.completeError("Location blocked");
+  Future<bool> _getUserLocationAndFindNearest() async {
+    if (lastLocationCheck != null &&
+        DateTime.now().difference(lastLocationCheck!) < cacheDuration &&
+        cachedNearest != null) {
+      // debugPrint("Using cached nearest device");
+      if (mounted) {
+        setState(() {
+          nearestDevice = cachedNearest;
+          selectedDevice = cachedNearest;
+          errorMessage = null;
         });
-        final position = await completer.future;
-        userLat = position.latitude;
-        userLon = position.longitude;
-      } catch (_) {
-        return false;
       }
-    } else {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied ||
-            permission == LocationPermission.deniedForever) {
+      return true;
+    }
+
+    try {
+      double userLat = 0, userLon = 0;
+
+      if (kIsWeb) {
+        final completer = Completer<Position>();
+        try {
+          html.window.navigator.geolocation?.getCurrentPosition().then((pos) {
+            final coords = pos.coords;
+            completer.complete(Position(
+              latitude: coords?.latitude?.toDouble() ?? 0,
+              longitude: coords?.longitude?.toDouble() ?? 0,
+              timestamp: DateTime.now(),
+              accuracy: 0,
+              altitude: 0,
+              heading: 0,
+              speed: 0,
+              speedAccuracy: 0,
+              altitudeAccuracy: 0,
+              headingAccuracy: 0,
+            ));
+          }).catchError((e) {
+            completer.completeError("Location blocked");
+          });
+          final position = await completer.future;
+          userLat = position.latitude;
+          userLon = position.longitude;
+        } catch (_) {
           return false;
         }
-      }
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
-      userLat = position.latitude;
-      userLon = position.longitude;
-    }
-
-    Map<String, dynamic>? nearest;
-    double minDist = double.infinity;
-
-    for (var device in devices) {
-      double lat = double.tryParse(device["Latitude"]?.toString() ?? "") ?? 0;
-      double lon = double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
-      if (lat == 0 && lon == 0) continue;
-
-      final ts = _parseTimestamp(device["TimeStamp_IST"]?.toString());
-      if (ts == null) continue; 
-      if (DateTime.now().difference(ts).inMinutes > 30) {
-        continue; 
+      } else {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied ||
+              permission == LocationPermission.deniedForever) {
+            return false;
+          }
+        }
+        Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high);
+        userLat = position.latitude;
+        userLon = position.longitude;
       }
 
-      double distance = _calculateDistance(userLat, userLon, lat, lon);
-      if (distance < minDist) {
-        minDist = distance;
-        nearest = Map<String, dynamic>.from(device);
+      Map<String, dynamic>? nearest;
+      double minDist = double.infinity;
+
+      for (var device in devices) {
+        double lat = double.tryParse(device["Latitude"]?.toString() ?? "") ?? 0;
+        double lon =
+            double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
+        if (lat == 0 && lon == 0) continue;
+
+        double distance = _calculateDistance(userLat, userLon, lat, lon);
+        if (distance < minDist) {
+          minDist = distance;
+          nearest = Map<String, dynamic>.from(device);
+        }
       }
-    }
 
-    if (mounted && nearest != null) {
-      setState(() {
-        nearestDevice = nearest;
-        selectedDevice = nearestDevice;
-        errorMessage = null;
-      });
+      if (mounted && nearest != null) {
+        setState(() {
+          nearestDevice = nearest;
+          selectedDevice = nearestDevice;
+          errorMessage = null;
+        });
 
-      lastLocationCheck = DateTime.now();
-      cachedNearest = nearest;
+        lastLocationCheck = DateTime.now();
+        cachedNearest = nearest;
+      }
+      return true;
+    } catch (e) {
+      debugPrint("Error in location/nearest: $e");
+      return false;
     }
-    return true;
-  } catch (e) {
-    debugPrint("Error in location/nearest: $e");
-    return false;
   }
-}
 
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
@@ -632,7 +609,6 @@ Future<bool> _getUserLocationAndFindNearest() async {
 
   Widget _windDial(dynamic direction, dynamic speed) {
     double angle = double.tryParse(direction?.toString() ?? "") ?? 0.0;
-
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -1259,7 +1235,8 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                               screenWidth < 600;
 
                                           Widget deviceButton = TextButton(
-                                            style: (selectedDevice?["deviceid#topic"]
+                                            style: (selectedDevice?[
+                                                            "deviceid#topic"]
                                                         .toString() ==
                                                     "1#WS/Campus/1")
                                                 ? TextButton.styleFrom(
@@ -1295,7 +1272,8 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                                     shape: const CircleBorder(),
                                                   ),
                                             onPressed: () async {
-                                              if (selectedDevice?["deviceid#topic"]
+                                              if (selectedDevice?[
+                                                          "deviceid#topic"]
                                                       .toString() ==
                                                   "1#WS/Campus/1") {
                                                 // Check nearest
@@ -1335,7 +1313,8 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                                 });
                                               }
                                             },
-                                            child: selectedDevice?["deviceid#topic"]
+                                            child: selectedDevice?[
+                                                            "deviceid#topic"]
                                                         .toString() ==
                                                     "1#WS/Campus/1"
                                                 ? const Text(
@@ -1526,7 +1505,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                                                             "WindDirection",
                                                                             "TimeStamp_IST",
                                                                             "CurrentTemperature",
-                                                                          "deviceid#topic",
+                                                                            "deviceid#topic",
                                                                             "ExpiresAt",
                                                                             "IMEINumber",
                                                                             "LastUpdated",
@@ -1647,19 +1626,19 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                                                     !_isNullOrEmpty(e
                                                                         .value) &&
                                                                     !{
-                                                                    "Latitude",
-                                                                            "Longitude",
-                                                                            "WindDirection",
-                                                                            "TimeStamp_IST",
-                                                                            "CurrentTemperature",
-                                                                            "deviceid#topic",
-                                                                            "ExpiresAt",
-                                                                            "IMEINumber",
-                                                                            "LastUpdated",
-                                                                            "Topic",
-                                                                            "SignalStrength",
-                                                                            "BatteryVoltage",
-                                                                            "RainfallHourly"
+                                                                      "Latitude",
+                                                                      "Longitude",
+                                                                      "WindDirection",
+                                                                      "TimeStamp_IST",
+                                                                      "CurrentTemperature",
+                                                                      "deviceid#topic",
+                                                                      "ExpiresAt",
+                                                                      "IMEINumber",
+                                                                      "LastUpdated",
+                                                                      "Topic",
+                                                                      "SignalStrength",
+                                                                      "BatteryVoltage",
+                                                                      "RainfallHourly"
                                                                     }.contains(
                                                                         e.key))
                                                                 .map(
@@ -2174,9 +2153,21 @@ Future<bool> _getUserLocationAndFindNearest() async {
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: themeProvider.isDarkMode
-                          ? Colors.blueGrey[900]
-                          : const Color.fromARGB(255, 112, 163, 161),
+                      gradient: LinearGradient(
+                        colors: isDarkMode
+                            ? [
+                                Colors.blueGrey.shade800,
+                                const Color.fromARGB(137, 49, 47, 47)
+                              ]
+                            : [
+                                const Color.fromARGB(255, 255, 255, 255)
+                                    .withOpacity(0.3),
+                                const Color.fromARGB(255, 94, 211, 162)
+                                    .withOpacity(0.3)
+                              ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -2681,9 +2672,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-             
                   ],
-                  
                 ),
               ),
             ),
