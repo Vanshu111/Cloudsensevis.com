@@ -1347,6 +1347,9 @@ DateTime? parseDate(String? dateStr) {
     if (topic.contains('IIT/WS')) {
       return (category: 'IIT Bombay Sensor', prefix: 'IT');
     }
+      if (topic.contains('WS/Vanix')) {
+      return (category: 'Vanix Sensor', prefix: 'VD');
+    }
     return (category: 'Unknown Sensor', prefix: '');
   }
 
