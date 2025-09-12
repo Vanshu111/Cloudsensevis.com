@@ -1,3 +1,8 @@
+
+
+
+
+
 import 'package:cloud_sense_webapp/Datasheet_Download.dart';
 import 'package:cloud_sense_webapp/drawer.dart';
 import 'package:cloud_sense_webapp/footer.dart';
@@ -6,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_sense_webapp/appbar.dart';
-
 
 final List<Map<String, dynamic>> allSensors = [
   {
@@ -250,8 +254,7 @@ class ProductPage extends StatelessWidget {
     final isWideScreen = screenWidth > 1024;
     final isTablet = screenWidth > 700 && screenWidth <= 1024;
 
-    final heroHeight =
-        isWideScreen ? 450.0 : (isTablet ? 400.0 : 350.0);
+    final heroHeight = isWideScreen ? 450.0 : (isTablet ? 400.0 : 350.0);
 
     double headlineSize;
     double bannerTextSize;
@@ -290,32 +293,48 @@ class ProductPage extends StatelessWidget {
               children: [
                 if (isWideScreen)
                   _buildHeroDesktop(heroHeight, headlineSize, bannerTextSize,
-                      bannerPointSize, context, isDarkMode, sensor)
+                          bannerPointSize, context, isDarkMode, sensor)
+                      .animate()
+                      .slideX(begin: -0.2, duration: 1600.ms)
+                      .fadeIn(duration: 1600.ms)
                 else if (isTablet)
                   _buildHeroTablet(heroHeight, headlineSize, bannerTextSize,
-                      bannerPointSize, context, isDarkMode, sensor)
+                          bannerPointSize, context, isDarkMode, sensor)
+                      .animate()
+                      .slideY(begin: -0.2, duration: 1600.ms)
+                      .fadeIn(duration: 1600.ms)
                 else
                   _buildHeroMobile(heroHeight, headlineSize, bannerTextSize,
-                      bannerPointSize, context, isDarkMode, sensor),
+                          bannerPointSize, context, isDarkMode, sensor)
+                      .animate()
+                      .slideY(begin: -0.2, duration: 1600.ms)
+                      .fadeIn(duration: 1600.ms),
 
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: (isWideScreen || isTablet)
                       ? _buildIpadLayout(isDarkMode, sensor)
+                          .animate()
+                          .fadeIn(duration: 1600.ms)
+                          .slideY(begin: 0.2, duration: 1600.ms)
                       : Column(
                           children: [
-                            _buildFeaturesCard(isDarkMode, sensor).animate().fadeIn(),
+                            _buildFeaturesCard(isDarkMode, sensor)
+                                .animate()
+                                .fadeIn(duration: 1500.ms)
+                                .slideX(begin: -0.2, duration: 1500.ms),
                             const SizedBox(height: 16),
                             _buildApplicationsCard(isDarkMode, sensor)
                                 .animate()
-                                .fadeIn(),
+                                .fadeIn(duration: 1600.ms)
+                                .slideX(begin: 0.2, duration: 1600.ms),
                           ],
                         ),
                 ),
 
                 Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16.0, vertical: 8.0),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
@@ -323,13 +342,16 @@ class ProductPage extends StatelessWidget {
                       ),
                       child: _buildSpecificationsCard(context, isDarkMode, sensor)
                           .animate()
-                          .fadeIn()
-                          .slideY(begin: 0.2),
+                          .fadeIn(duration: 1700.ms)
+                          .slideY(begin: 0.3, duration: 1700.ms),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Footer(),
+                const Footer()
+                    .animate()
+                    .fadeIn(duration: 1800.ms)
+                    .slideY(begin: 0.2, duration: 1800.ms),
               ],
             ),
           ),
@@ -337,7 +359,6 @@ class ProductPage extends StatelessWidget {
       ),
     );
   }
-
 
   Widget _buildHeroDesktop(double heroHeight, double headlineSize,
       double bannerTextSize, double bannerPointSize, BuildContext context, bool isDarkMode, Map sensor) {
@@ -354,7 +375,10 @@ class ProductPage extends StatelessWidget {
               bannerPointSize,
               context,
               sensor,
-            ),
+            )
+                .animate()
+                .fadeIn(duration: 1500.ms)
+                .slideX(begin: -0.2, duration: 1600.ms),
           ),
           const SizedBox(width: 20),
           Expanded(
@@ -363,8 +387,8 @@ class ProductPage extends StatelessWidget {
               constraints: const BoxConstraints(maxHeight: 450),
               child: Image.asset(sensor["imagePath"], fit: BoxFit.contain)
                   .animate()
-                  .fadeIn(duration: 600.ms)
-                  .scale(duration: 800.ms, curve: Curves.easeOutBack),
+                  .fadeIn(duration: 1600.ms)
+                  .scale(duration: 1800.ms, curve: Curves.easeOutBack),
             ),
           ),
         ],
@@ -381,14 +405,17 @@ class ProductPage extends StatelessWidget {
           color: isDarkMode ? const Color(0xFF1C3B4B) : const Color(0xFF4E7F85),
           padding: const EdgeInsets.all(16),
           child: _buildHeroText(
-              headlineSize, bannerTextSize, bannerPointSize, context, sensor),
+                  headlineSize, bannerTextSize, bannerPointSize, context, sensor)
+              .animate()
+              .fadeIn(duration: 1400.ms)
+              .slideX(begin: -0.2, duration: 1400.ms),
         ),
         SizedBox(
           height: heroHeight * 0.6,
           child: Image.asset(sensor["imagePath"], fit: BoxFit.contain)
               .animate()
-              .fadeIn(duration: 600.ms)
-              .scale(duration: 800.ms, curve: Curves.easeOutBack),
+              .fadeIn(duration: 1600.ms)
+              .scale(duration: 1800.ms, curve: Curves.easeOutBack),
         ),
       ],
     );
@@ -403,14 +430,17 @@ class ProductPage extends StatelessWidget {
           color: isDarkMode ? const Color(0xFF1C3B4B) : const Color(0xFF4E7F85),
           padding: const EdgeInsets.all(16),
           child: _buildHeroText(
-              headlineSize, bannerTextSize, bannerPointSize, context, sensor),
+                  headlineSize, bannerTextSize, bannerPointSize, context, sensor)
+              .animate()
+              .fadeIn(duration: 1400.ms)
+              .slideX(begin: -0.2, duration: 1400.ms),
         ),
         SizedBox(
           height: heroHeight * 0.6,
           child: Image.asset(sensor["imagePath"], fit: BoxFit.contain)
               .animate()
-              .fadeIn(duration: 600.ms)
-              .scale(duration: 800.ms, curve: Curves.easeOutBack),
+              .fadeIn(duration: 1600.ms)
+              .scale(duration: 1800.ms, curve: Curves.easeOutBack),
         ),
       ],
     );
@@ -454,12 +484,15 @@ class ProductPage extends StatelessWidget {
               fontSize: bannerTextSize,
               fontWeight: FontWeight.bold,
               color: Colors.white),
-        ),
+        ).animate().fadeIn(duration: 1400.ms).slideY(begin: 0.2, duration: 1400.ms),
         const SizedBox(height: 16),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: (sensor["bannerPoints"] as List<dynamic>)
-              .map((point) => BannerPoint(point, fontSize: bannerPointSize))
+              .map((point) => BannerPoint(point, fontSize: bannerPointSize)
+                  .animate()
+                  .fadeIn(duration: 1300.ms)
+                  .slideX(begin: -0.1, duration: 1300.ms))
               .toList(),
         ),
         const SizedBox(height: 20),
@@ -467,7 +500,7 @@ class ProductPage extends StatelessWidget {
           "Enquire",
           Colors.teal,
           () => _sendEmail(context, sensor["email"]),
-        ),
+        ).animate().scale(duration: 1400.ms, curve: Curves.easeOutBack),
       ],
     );
   }
@@ -475,7 +508,6 @@ class ProductPage extends StatelessWidget {
   Future<void> _sendEmail(BuildContext context, String email) async {
     final subject = "Product Enquiry";
     final body = "Hello, I am interested in your product.";
-
     final Uri mailtoUri =
         Uri(scheme: 'mailto', path: email, query: "subject=$subject&body=$body");
 
@@ -492,9 +524,17 @@ class ProductPage extends StatelessWidget {
   Widget _buildIpadLayout(bool isDarkMode, Map sensor) {
     return Row(
       children: [
-        Expanded(child: _buildFeaturesCard(isDarkMode, sensor)),
+        Expanded(
+            child: _buildFeaturesCard(isDarkMode, sensor)
+                .animate()
+                .fadeIn(duration: 1400.ms)
+                .slideX(begin: -0.2, duration: 1400.ms)),
         const SizedBox(width: 16),
-        Expanded(child: _buildApplicationsCard(isDarkMode, sensor)),
+        Expanded(
+            child: _buildApplicationsCard(isDarkMode, sensor)
+                .animate()
+                .fadeIn(duration: 1400.ms)
+                .slideX(begin: 0.2, duration: 1400.ms)),
       ],
     );
   }
@@ -513,7 +553,10 @@ class ProductPage extends StatelessWidget {
                     color: isDarkMode ? Colors.white : Colors.blue.shade800)),
             const SizedBox(height: 10),
             ...(sensor["features"] as List<dynamic>)
-                .map((f) => featureItem(f, isDarkMode))
+                .map((f) => featureItem(f, isDarkMode)
+                    .animate()
+                    .fadeIn(duration: 1300.ms)
+                    .slideY(begin: 0.1, duration: 1300.ms))
                 .toList(),
           ],
         ),
@@ -535,7 +578,10 @@ class ProductPage extends StatelessWidget {
                     color: isDarkMode ? Colors.white : Colors.blue.shade800)),
             const SizedBox(height: 10),
             ...(sensor["applications"] as List<dynamic>)
-                .map((a) => featureItem(a, isDarkMode))
+                .map((a) => featureItem(a, isDarkMode)
+                    .animate()
+                    .fadeIn(duration: 1300.ms)
+                    .slideY(begin: 0.1, duration: 1300.ms))
                 .toList(),
           ],
         ),
@@ -544,10 +590,10 @@ class ProductPage extends StatelessWidget {
   }
 
   // ---------------- SPECIFICATIONS ----------------
-  Widget _buildSpecificationsCard(BuildContext context, bool isDarkMode, Map sensor) {
+  Widget _buildSpecificationsCard(
+      BuildContext context, bool isDarkMode, Map sensor) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWideScreen = screenWidth > 800;
-
     final specs = sensor["specifications"] as List<dynamic>;
 
     return HoverCard(
@@ -571,7 +617,10 @@ class ProductPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: specs
                             .sublist(0, (specs.length / 2).ceil())
-                            .map((s) => featureItem(s, isDarkMode))
+                            .map((s) => featureItem(s, isDarkMode)
+                                .animate()
+                                .fadeIn(duration: 1300.ms)
+                                .slideX(begin: -0.1, duration: 1300.ms))
                             .toList()),
                   ),
                   const SizedBox(width: 16),
@@ -580,7 +629,10 @@ class ProductPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: specs
                             .sublist((specs.length / 2).ceil())
-                            .map((s) => featureItem(s, isDarkMode))
+                            .map((s) => featureItem(s, isDarkMode)
+                                .animate()
+                                .fadeIn(duration: 1300.ms)
+                                .slideX(begin: 0.1, duration: 1300.ms))
                             .toList()),
                   ),
                 ],
@@ -589,7 +641,10 @@ class ProductPage extends StatelessWidget {
               Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: specs
-                      .map((s) => featureItem(s, isDarkMode))
+                      .map((s) => featureItem(s, isDarkMode)
+                          .animate()
+                          .fadeIn(duration: 1300.ms)
+                          .slideY(begin: 0.1, duration: 1300.ms))
                       .toList()),
             const SizedBox(height: 40),
             Center(
@@ -602,7 +657,7 @@ class ProductPage extends StatelessWidget {
                       sensorKey: sensor["datasheetKey"],
                       fileType: "datasheet");
                 },
-              ),
+              ).animate().scale(duration: 1400.ms, curve: Curves.easeOutBack),
             ),
           ],
         ),
@@ -611,25 +666,59 @@ class ProductPage extends StatelessWidget {
   }
 
   // ---------------- HELPERS ----------------
-  static Widget _buildBannerButton(
-      String label, Color color, VoidCallback onPressed) {
-    return ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        elevation: 4,
-      ),
-      onPressed: onPressed,
-      icon: const Icon(Icons.arrow_forward, color: Colors.white),
-      label: Text(label,
-          style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.w600)),
-    );
-  }
 
-  Widget featureItem(String text, bool isDarkMode) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+static Widget _buildBannerButton(
+    String label, Color color, VoidCallback onPressed) {
+  return ElevatedButton.icon(
+    style: ElevatedButton.styleFrom(
+      backgroundColor: color,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      elevation: 8, 
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    ),
+    onPressed: onPressed,
+    icon: const Icon(Icons.arrow_forward, color: Colors.white),
+    label: Text(
+      label,
+      style: const TextStyle(
+        color: Colors.white,
+        fontWeight: FontWeight.w600,
+      ),
+    ),
+  )
+    
+      .animate(
+        onPlay: (controller) => controller.repeat(reverse: true),
+      )
+      .scale(
+        duration: 1200.ms,
+        begin: const Offset(1, 1),
+        end: const Offset(1.08, 1.08),
+        curve: Curves.easeInOut,
+      )
+ 
+      .then() 
+      .shimmer(
+        duration: 1500.ms,
+        color: Colors.white.withOpacity(0.2), 
+      )
+      .then()
+      .blurXY(
+        begin: 0,
+        end: 4, 
+        duration: 1200.ms,
+        curve: Curves.easeInOut,
+      );
+}
+
+
+ Widget featureItem(String text, bool isDarkMode) {
+  return Card(
+    elevation: 3,
+    color: isDarkMode ? Colors.grey[900] : Colors.white,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       child: Row(
         children: [
           Icon(Icons.check_circle,
@@ -639,12 +728,18 @@ class ProductPage extends StatelessWidget {
               child: Text(text,
                   style: TextStyle(
                       fontSize: 15,
+                      fontWeight: FontWeight.w500,
                       color: isDarkMode ? Colors.white : Colors.black87))),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
+
+}
+
+  
+
 
 // ------------------- REUSABLE SUPPORT -------------------
 class HoverCard extends StatefulWidget {
