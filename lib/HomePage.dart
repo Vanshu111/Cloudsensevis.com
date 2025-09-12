@@ -463,11 +463,26 @@ Future<void> fetchDevicesAndNearest({bool silent = false}) async {
 }
 
 
+DateTime? _parseTimestamp(String? ts) {
+  if (ts == null || ts.isEmpty) return null;
+
+  try {
+    // Format 1: dd-MM-yyyy HH:mm:ss
+    return DateFormat("dd-MM-yyyy HH:mm:ss").parse(ts);
+  } catch (_) {
+    try {
+      // Format 2: yyyy-MM-dd HH:mm:ss
+      return DateFormat("yyyy-MM-dd HH:mm:ss").parse(ts);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 Future<bool> _getUserLocationAndFindNearest() async {
   if (lastLocationCheck != null &&
       DateTime.now().difference(lastLocationCheck!) < cacheDuration &&
       cachedNearest != null) {
-   // debugPrint("Using cached nearest device");
     if (mounted) {
       setState(() {
         nearestDevice = cachedNearest;
@@ -528,9 +543,14 @@ Future<bool> _getUserLocationAndFindNearest() async {
 
     for (var device in devices) {
       double lat = double.tryParse(device["Latitude"]?.toString() ?? "") ?? 0;
-      double lon =
-          double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
+      double lon = double.tryParse(device["Longitude"]?.toString() ?? "") ?? 0;
       if (lat == 0 && lon == 0) continue;
+
+      final ts = _parseTimestamp(device["TimeStamp_IST"]?.toString());
+      if (ts == null) continue; 
+      if (DateTime.now().difference(ts).inMinutes > 30) {
+        continue; 
+      }
 
       double distance = _calculateDistance(userLat, userLon, lat, lon);
       if (distance < minDist) {
@@ -545,7 +565,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
         selectedDevice = nearestDevice;
         errorMessage = null;
       });
-      
+
       lastLocationCheck = DateTime.now();
       cachedNearest = nearest;
     }
@@ -555,6 +575,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
     return false;
   }
 }
+
   double _calculateDistance(
       double lat1, double lon1, double lat2, double lon2) {
     const R = 6371;
@@ -1505,7 +1526,7 @@ Future<bool> _getUserLocationAndFindNearest() async {
                                                                             "WindDirection",
                                                                             "TimeStamp_IST",
                                                                             "CurrentTemperature",
-                                                                           "deviceid#topic",
+                                                                          "deviceid#topic",
                                                                             "ExpiresAt",
                                                                             "IMEINumber",
                                                                             "LastUpdated",
