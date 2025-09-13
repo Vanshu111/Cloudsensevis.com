@@ -40,6 +40,251 @@ class ThemeProvider extends ChangeNotifier {
   }
 }
 
+// Helper function to determine a GRADIENT based on temperature
+Gradient _getTemperatureGradient(dynamic tempValue) {
+  // Default gradient for null or invalid values
+  const defaultGradient = LinearGradient(
+    colors: [Color(0xFF868F96), Color(0xFF596164)], // A nice grey gradient
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  if (tempValue == null) {
+    return defaultGradient;
+  }
+
+  final double? temp = double.tryParse(tempValue.toString());
+
+  if (temp == null) {
+    return defaultGradient;
+  }
+
+  // Define gradients inspired by weather visuals 🌡️
+  if (temp > 35) {
+    // Very Hot: Deep red to a fiery orange
+    return const LinearGradient(
+      colors: [Color(0xffc1121f), Color(0xfffca311)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else if (temp > 30) {
+    // Hot: Reddish to a warm orange
+    return const LinearGradient(
+      colors: [Color(0xffe63946), Color(0xfff77f00)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else if (temp > 20) {
+    // Warm: Sunny orange to a bright yellow
+    return const LinearGradient(
+      colors: [Color(0xffffa62b), Color(0xffffd700)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else if (temp > 10) {
+    // Mild: Light green to a soft yellow
+    return const LinearGradient(
+      colors: [Color(0xffa7c957), Color(0xfff2e8cf)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  } else {
+    // Cool: Sky blue to a gentle cyan
+    return const LinearGradient(
+      colors: [Color(0xff72ddf7), Color(0xffa2d2ff)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+}
+
+class AnimatedLightCard extends StatefulWidget {
+  final dynamic luxValue;
+  final String name;
+  final String unit;
+
+  const AnimatedLightCard({
+    Key? key,
+    required this.luxValue,
+    required this.name,
+    required this.unit,
+  }) : super(key: key);
+
+  @override
+  _AnimatedLightCardState createState() => _AnimatedLightCardState();
+}
+
+class _AnimatedLightCardState extends State<AnimatedLightCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _starController;
+  late List<_Star> _stars;
+
+  @override
+  void initState() {
+    super.initState();
+    _starController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4), // Speed of the twinkle
+    )..repeat();
+
+    // Create a list of 40 stars with random positions and sizes
+    _stars = List.generate(40, (index) => _Star());
+  }
+
+  @override
+  void dispose() {
+    _starController.dispose();
+    super.dispose();
+  }
+
+  // You can keep your _getLightGradient function as is.
+  Gradient _getLightGradient(dynamic luxValue) {
+    final double lux = double.tryParse(luxValue.toString()) ?? 0.0;
+    if (lux > 100) {
+      return const LinearGradient(
+          colors: [Color(0xffFDC830), Color(0xffF37335)],
+          begin: Alignment.bottomLeft,
+          end: Alignment.topRight);
+    } else {
+      return const LinearGradient(
+          colors: [Color(0xff0f2027), Color(0xff2c5364)],
+          begin: Alignment.bottomLeft,
+          end: Alignment.topRight);
+    }
+  }
+
+  // REPLACE your old build method with this new one
+  @override
+  Widget build(BuildContext context) {
+    final double lux = double.tryParse(widget.luxValue.toString()) ?? 0.0;
+    final bool isDay = lux > 100;
+
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        gradient: _getLightGradient(widget.luxValue),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      // Use ClipRRect to make sure the star animation stays inside the rounded corners
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // LAYER 1: The Starfield Background (only visible at night)
+            if (!isDay)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _StarPainter(
+                    stars: _stars,
+                    animation: _starController,
+                  ),
+                ),
+              ),
+
+            // LAYER 2: The Main Content (Icon, Name, Value)
+            // This Column sits on top of the starfield background.
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 700),
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                      child: isDay
+                          ? // --- Sun Icon for Day ---
+                          const Icon(
+                              Icons.wb_sunny_rounded,
+                              key: ValueKey('sun'),
+                              color: Colors.white,
+                              size: 18,
+                            )
+                          : // --- Moon Icon for Night ---
+                          const Icon(
+                              Icons.nightlight_round,
+                              key: ValueKey('moon'),
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.name,
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "${widget.luxValue} ${widget.unit}",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// This is the custom painter that draws each star
+class _StarPainter extends CustomPainter {
+  final List<_Star> stars;
+  final Animation<double> animation;
+
+  _StarPainter({required this.stars, required this.animation})
+      : super(repaint: animation);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white;
+
+    for (var star in stars) {
+      // Get the current opacity of the star from its animation phase
+      final opacity = star.getOpacity(animation.value);
+      if (opacity > 0) {
+        paint.color = Colors.white.withOpacity(opacity);
+        // Draw the star at its random position within the canvas
+        canvas.drawCircle(Offset(star.x * size.width, star.y * size.height),
+            star.radius, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _StarPainter oldDelegate) => false;
+}
+
+// A helper class to hold the properties of a single star
+class _Star {
+  final double x; // X position (0.0 to 1.0)
+  final double y; // Y position (0.0 to 1.0)
+  final double radius;
+  final double phase; // Random offset for twinkling
+
+  _Star()
+      : x = Random().nextDouble(),
+        y = Random().nextDouble(),
+        radius = Random().nextDouble() * 0.8 + 0.2, // Star size from 0.2 to 1.0
+        phase = Random().nextDouble();
+
+  // Calculate opacity using a sine wave to create a smooth twinkle effect
+  double getOpacity(double animationValue) {
+    return (0.5 * (sin(2 * pi * (animationValue + phase)) + 1)).clamp(0.0, 1.0);
+  }
+}
+
 class HomePage extends StatefulWidget {
   @override
   _HomePageState createState() => _HomePageState();
@@ -1472,11 +1717,10 @@ class _HomePageState extends State<HomePage> {
                                                                           const EdgeInsets
                                                                               .all(
                                                                               4),
+                                                                      // AFTER
                                                                       decoration: BoxDecoration(
-                                                                          color: Colors.redAccent.withOpacity(
-                                                                              0.3),
-                                                                          borderRadius:
-                                                                              BorderRadius.circular(8)),
+                                                                          gradient: _getTemperatureGradient(selectedDevice?["CurrentTemperature"]), // <-- Use the new gradient function here
+                                                                          borderRadius: BorderRadius.circular(8)),
                                                                       child:
                                                                           Column(
                                                                         mainAxisAlignment:
@@ -1518,32 +1762,53 @@ class _HomePageState extends State<HomePage> {
                                                                             "RainfallDaily",
                                                                             "RainfallWeekly"
                                                                           }.contains(e.key))
-                                                                      .map(
-                                                                        (e) =>
-                                                                            Container(
-                                                                          padding: const EdgeInsets
-                                                                              .all(
-                                                                              2),
-                                                                          decoration: BoxDecoration(
-                                                                              color: Colors.white.withOpacity(0.1),
-                                                                              borderRadius: BorderRadius.circular(8)),
-                                                                          child:
-                                                                              Column(
-                                                                            mainAxisAlignment:
-                                                                                MainAxisAlignment.center,
-                                                                            children: [
-                                                                              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                                                                Icon(_getIconForKey(e.key), color: Colors.white, size: 18),
-                                                                                const SizedBox(width: 4),
-                                                                                Text("${_getNameForKey(e.key)}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
-                                                                              ]),
-                                                                              const SizedBox(height: 4),
-                                                                              Text("${_formatValue(e.value)} ${_getUnitForKey(e.key)}", style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16), textAlign: TextAlign.center),
-                                                                            ],
-                                                                          ),
+                                                                      .map((e) {
+                                                                    // ADD: Check for WindSpeed key first (before LightIntensity)
+
+                                                                    if (e.key ==
+                                                                        "LightIntensity") {
+                                                                      // This call remains the same, but it will now use the new animation code
+                                                                      return AnimatedLightCard(
+                                                                        luxValue:
+                                                                            _formatValue(e.value),
+                                                                        name: _getNameForKey(
+                                                                            e.key),
+                                                                        unit: _getUnitForKey(
+                                                                            e.key),
+                                                                      );
+                                                                    } else {
+                                                                      // --- Build the default widget for all other items ---
+                                                                      return Container(
+                                                                        padding: const EdgeInsets
+                                                                            .all(
+                                                                            2),
+                                                                        decoration:
+                                                                            BoxDecoration(
+                                                                          color: Colors
+                                                                              .white
+                                                                              .withOpacity(0.1),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(8),
                                                                         ),
-                                                                      )
-                                                                      .toList(),
+                                                                        child:
+                                                                            Column(
+                                                                          mainAxisAlignment:
+                                                                              MainAxisAlignment.center,
+                                                                          children: [
+                                                                            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                                                              Icon(_getIconForKey(e.key), color: Colors.white, size: 18),
+                                                                              const SizedBox(width: 4),
+                                                                              Text("${_getNameForKey(e.key)}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                                                            ]),
+                                                                            const SizedBox(height: 4),
+                                                                            Text("${_formatValue(e.value)} ${_getUnitForKey(e.key)}",
+                                                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                                                                textAlign: TextAlign.center),
+                                                                          ],
+                                                                        ),
+                                                                      );
+                                                                    }
+                                                                  }).toList(),
                                                                 ],
                                                               ),
                                                             ),
@@ -1583,14 +1848,14 @@ class _HomePageState extends State<HomePage> {
                                                                 padding:
                                                                     const EdgeInsets
                                                                         .all(4),
-                                                                decoration: BoxDecoration(
-                                                                    color: Colors
-                                                                        .redAccent
-                                                                        .withOpacity(
-                                                                            0.3),
-                                                                    borderRadius:
-                                                                        BorderRadius.circular(
-                                                                            8)),
+                                                                // AFTER
+                                                                decoration:
+                                                                    BoxDecoration(
+                                                                        gradient:
+                                                                            _getTemperatureGradient(selectedDevice?[
+                                                                                "CurrentTemperature"]), // <-- Use the new gradient function here
+                                                                        borderRadius:
+                                                                            BorderRadius.circular(8)),
                                                                 child: Column(
                                                                   mainAxisAlignment:
                                                                       MainAxisAlignment
@@ -1646,49 +1911,71 @@ class _HomePageState extends State<HomePage> {
                                                                       "RainfallWeekly"
                                                                     }.contains(
                                                                         e.key))
-                                                                .map(
-                                                                  (e) =>
-                                                                      Container(
-                                                                    padding:
-                                                                        const EdgeInsets
-                                                                            .all(
-                                                                            8),
-                                                                    decoration: BoxDecoration(
-                                                                        color: Colors
-                                                                            .white
-                                                                            .withOpacity(
-                                                                                0.3),
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(8)),
-                                                                    child:
-                                                                        Column(
-                                                                      mainAxisAlignment:
-                                                                          MainAxisAlignment
-                                                                              .center,
-                                                                      children: [
-                                                                        Row(
-                                                                            mainAxisAlignment:
-                                                                                MainAxisAlignment.center,
-                                                                            children: [
-                                                                              Icon(_getIconForKey(e.key), color: Colors.white, size: 14),
-                                                                              const SizedBox(width: 4),
-                                                                              Text("${_getNameForKey(e.key)}", style: const TextStyle(color: Colors.white70, fontSize: 11)),
-                                                                            ]),
-                                                                        const SizedBox(
-                                                                            height:
-                                                                                4),
-                                                                        Text(
-                                                                            "${_formatValue(e.value)} ${_getUnitForKey(e.key)}",
-                                                                            style: const TextStyle(
-                                                                                color: Colors.white,
-                                                                                fontWeight: FontWeight.bold,
-                                                                                fontSize: 13),
-                                                                            textAlign: TextAlign.center),
-                                                                      ],
-                                                                    ),
+                                                                .map((e) {
+                                                              // ADD: Check for WindSpeed key first (before LightIntensity)
+
+                                                              if (e.key ==
+                                                                  "LightIntensity") {
+                                                                // This call remains the same, but it will now use the new animation code
+                                                                return AnimatedLightCard(
+                                                                  luxValue:
+                                                                      _formatValue(
+                                                                          e.value),
+                                                                  name:
+                                                                      _getNameForKey(
+                                                                          e.key),
+                                                                  unit:
+                                                                      _getUnitForKey(
+                                                                          e.key),
+                                                                );
+                                                              } else {
+                                                                // --- Build the default widget for all other items ---
+                                                                return Container(
+                                                                  padding:
+                                                                      const EdgeInsets
+                                                                          .all(
+                                                                          2),
+                                                                  decoration:
+                                                                      BoxDecoration(
+                                                                    color: Colors
+                                                                        .white
+                                                                        .withOpacity(
+                                                                            0.1),
+                                                                    borderRadius:
+                                                                        BorderRadius
+                                                                            .circular(8),
                                                                   ),
-                                                                )
-                                                                .toList(),
+                                                                  child: Column(
+                                                                    mainAxisAlignment:
+                                                                        MainAxisAlignment
+                                                                            .center,
+                                                                    children: [
+                                                                      Row(
+                                                                          mainAxisAlignment:
+                                                                              MainAxisAlignment.center,
+                                                                          children: [
+                                                                            Icon(_getIconForKey(e.key),
+                                                                                color: Colors.white,
+                                                                                size: 14),
+                                                                            const SizedBox(width: 4),
+                                                                            Text("${_getNameForKey(e.key)}",
+                                                                                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                                                                          ]),
+                                                                      const SizedBox(
+                                                                          height:
+                                                                              4),
+                                                                      Text(
+                                                                          "${_formatValue(e.value)} ${_getUnitForKey(e.key)}",
+                                                                          style: const TextStyle(
+                                                                              color: Colors.white,
+                                                                              fontWeight: FontWeight.bold,
+                                                                              fontSize: 13),
+                                                                          textAlign: TextAlign.center),
+                                                                    ],
+                                                                  ),
+                                                                );
+                                                              }
+                                                            }).toList(),
                                                           ],
                                                         ),
                                                       const SizedBox(
