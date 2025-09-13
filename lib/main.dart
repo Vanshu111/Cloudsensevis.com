@@ -578,15 +578,13 @@ class MyApp extends StatelessWidget {
         '/login': (context) => SignInSignUpScreen(),
         '/accountinfo': (context) => AccountInfoPage(),
         '/deviceinfo': (context) => MapPage(),
-               "/probe": (_) => const ProductPage(sensorIndex: 0),
+        "/probe": (_) => const ProductPage(sensorIndex: 0),
         "/atrh": (_) => const ProductPage(sensorIndex: 1),
         "/windsensor": (_) => const ProductPage(sensorIndex: 2),
         "/raingauge": (_) => const ProductPage(sensorIndex: 3),
         "/datalogger": (_) => const ProductPage(sensorIndex: 4),
         "/gateway": (_) => const ProductPage(sensorIndex: 5),
-
         '/admin': (context) => AdminPage(),
-      
         '/devicelist': (context) => DataDisplayPage(),
         '/devicelocationinfo': (context) => DeviceActivityPage(),
         '/devicemapinfo': (context) => DeviceMapScreen(),

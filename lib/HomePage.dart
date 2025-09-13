@@ -656,6 +656,9 @@ class _HomePageState extends State<HomePage> {
       (match) => '${match.group(1)} ${match.group(2)}',
     );
 
+    // Special case for RainfallHourly to display as "Rainfall"
+    if (paramName == 'RainfallHourly') return 'Rainfall';
+
     return result[0].toUpperCase() + result.substring(1);
   }
 
@@ -1512,7 +1515,8 @@ class _HomePageState extends State<HomePage> {
                                                                             "Topic",
                                                                             "SignalStrength",
                                                                             "BatteryVoltage",
-                                                                            "RainfallHourly"
+                                                                            "RainfallDaily",
+                                                                            "RainfallWeekly"
                                                                           }.contains(e.key))
                                                                       .map(
                                                                         (e) =>
@@ -1638,7 +1642,8 @@ class _HomePageState extends State<HomePage> {
                                                                       "Topic",
                                                                       "SignalStrength",
                                                                       "BatteryVoltage",
-                                                                      "RainfallHourly"
+                                                                      "RainfallDaily",
+                                                                      "RainfallWeekly"
                                                                     }.contains(
                                                                         e.key))
                                                                 .map(
@@ -2608,7 +2613,9 @@ class _HomePageState extends State<HomePage> {
               elevation: 4,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20)),
-              color: isDarkMode ? Colors.grey[800] : Colors.white,
+              color: isDarkMode
+                  ? Colors.grey[800]
+                  : const Color.fromARGB(255, 224, 220, 220),
               child: Padding(
                 padding: cardPadding,
                 child: Column(
