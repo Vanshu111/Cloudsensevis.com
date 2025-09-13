@@ -16,117 +16,6 @@ import 'package:universal_html/html.dart' as html;
 import 'package:intl/intl.dart';
 import 'dart:async';
 
-// Updated CompassNeedlePainter with corrected arrowhead positioning
-class CompassNeedlePainter extends CustomPainter {
-  CompassNeedlePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    // Define the needle length (60% of radius as per your code)
-    final needleLength = radius * 0.4;
-
-    // Paint for the red tip (pointing to wind direction, initially pointing up/North)
-    final redPaint = Paint()
-      ..color = Colors.red
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    // Paint for the white tail (opposite direction)
-    final whitePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    // Paint for the red arrowhead (filled triangle)
-    final arrowPaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.fill;
-
-    // Draw the red tip (from center to North, will be rotated by Transform.rotate)
-    final tipX = center.dx;
-    final tipY = center.dy - needleLength; // Pointing up (North)
-    canvas.drawLine(center, Offset(tipX, tipY), redPaint);
-
-    // Draw the white tail (from center to South)
-    final tailX = center.dx;
-    final tailY = center.dy + needleLength; // Pointing down (South)
-    canvas.drawLine(center, Offset(tailX, tailY), whitePaint);
-
-    // Draw the arrowhead at the tip of the red line
-    final arrowSize = 8.0; // Width of the arrowhead base
-    final arrowHeight = 10.0; // Height of the arrowhead (from base to tip)
-    final arrowPath = Path();
-
-    final baseLeft = Offset(tipX - arrowSize / 2, tipY); // Left base point
-    final baseRight = Offset(tipX + arrowSize / 2, tipY); // Right base point
-    // The tip of the arrowhead extends further in the direction of the red line (upward)
-    final arrowTip = Offset(
-        tipX, tipY - arrowHeight); // Tip of the arrowhead (further North)
-    arrowPath.moveTo(arrowTip.dx, arrowTip.dy); // Tip of the arrow
-    arrowPath.lineTo(baseLeft.dx, baseLeft.dy); // Left base
-    arrowPath.lineTo(baseRight.dx, baseRight.dy); // Right base
-    arrowPath.close(); // Close the triangle
-    canvas.drawPath(arrowPath, arrowPaint);
-
-    // Draw a small circle at the center to cover the intersection
-    final centerPaint = Paint()
-      ..color = Colors.grey.shade300
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, 5, centerPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class CompassBackgroundPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
-
-    final gradientPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [Colors.black.withOpacity(0.7), Colors.black.withOpacity(0.5)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(Rect.fromCircle(center: center, radius: radius))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawCircle(center, radius, gradientPaint);
-
-    final innerCirclePaint = Paint()
-      ..color = Colors.grey.withOpacity(0.2)
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, radius * 0.8, innerCirclePaint);
-
-    final tickPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 2;
-    final tickLength = 8.0;
-    for (int i = 0; i < 360; i += 30) {
-      final angle = i * math.pi / 180;
-      final startX = center.dx + (radius - tickLength) * math.sin(angle);
-      final startY = center.dy - (radius - tickLength) * math.cos(angle);
-      final endX = center.dx + radius * math.sin(angle);
-      final endY = center.dy - radius * math.cos(angle);
-      canvas.drawLine(Offset(startX, startY), Offset(endX, endY), tickPaint);
-    }
-
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(center, radius, borderPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 // DeviceStatus class to hold device data
 class DeviceStatus {
   final String deviceId;
@@ -234,14 +123,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                   const SizedBox(height: 8),
                   if (_isLoading)
                     const Center(child: CircularProgressIndicator())
-                  // else if (_errorMessage != null)
-                  //   Text(
-                  //     _errorMessage!,
-                  //     style: TextStyle(
-                  //       color: isDarkMode ? Colors.red[300] : Colors.red[700],
-                  //       fontSize: 14,
-                  //     ),
-                  //   )
                   else
                     SizedBox(
                       height: 80,
@@ -401,7 +282,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         'Rainfall': fsrainData,
                         'Radiation': fsradiationData,
                         'Wind Speed': fswindspeedData,
-                        'Wind Direction': fswinddirectionData,
                       },
                     ),
                   if (widget.deviceName.startsWith('CB'))
@@ -442,8 +322,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             NARLParametersData['LightIntensity'] ?? [],
                         'Wind Speed': NARLParametersData['WindSpeed'] ?? [],
                         'Pressure': NARLParametersData['AtmPressure'] ?? [],
-                        'Wind Direction':
-                            NARLParametersData['WindDirection'] ?? [],
                         'Rainfall': NARLParametersData['RainfallHourly'] ?? [],
                       },
                     ),
@@ -472,8 +350,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         'Rainfall': csParametersData['RainfallHourly'] ?? [],
                         'Wind Speed': csParametersData['WindSpeed'] ?? [],
                         'Pressure': csParametersData['AtmPressure'] ?? [],
-                        'Wind Direction':
-                            csParametersData['WindDirection'] ?? [],
                       },
                     ),
                   if (widget.deviceName.startsWith('CF'))
@@ -488,8 +364,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                         'Rainfall': cfParametersData['RainfallHourly'] ?? [],
                         'Wind Speed': cfParametersData['WindSpeed'] ?? [],
                         'Pressure': cfParametersData['AtmPressure'] ?? [],
-                        'Wind Direction':
-                            cfParametersData['WindDirection'] ?? [],
                       },
                     ),
                   if (widget.deviceName.startsWith('KJ'))
@@ -519,8 +393,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                             MYParametersData['LightIntensity'] ?? [],
                         'Wind Speed': MYParametersData['WindSpeed'] ?? [],
                         'Pressure': MYParametersData['AtmPressure'] ?? [],
-                        'Wind Direction':
-                            MYParametersData['WindDirection'] ?? [],
                         'Rainfall': MYParametersData['RainfallHourly'] ?? [],
                       },
                     ),
@@ -1002,8 +874,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'Humidity',
         'Rain Level',
         'Radiation',
-        'Wind Speed',
-        'Wind Direction',
+        'Wind',
       ];
       for (var param in params) {
         _chartKeys[param] = GlobalKey();
@@ -1032,9 +903,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'Temperature',
         'Humidity',
         'Light Intensity',
-        'Wind Speed',
+        'Wind',
         'Atm Pressure',
-        'Wind Direction',
         'Rainfall',
       ];
       for (var param in params) {
@@ -1066,17 +936,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'Temperature',
         'Humidity',
         'Light Intensity',
-        'Wind Speed',
+        'Wind',
         'Atm Pressure',
-        'Wind Direction',
         'Rainfall',
       ];
-      for (var param in params) {
-        _chartKeys[param] = GlobalKey();
-        _isParamHovering[param] = false;
-      }
-    } else if (widget.deviceName.startsWith('VD')) {
-      const params = ['Temperature', 'Humidity', 'Light Intensity', 'Rainfall'];
       for (var param in params) {
         _chartKeys[param] = GlobalKey();
         _isParamHovering[param] = false;
@@ -1088,9 +951,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'Humidity',
         'Light Intensity',
         'Rainfall',
-        'Wind Speed',
+        'Wind',
         'Atm Pressure',
-        'Wind Direction',
       ];
       for (var param in params) {
         _chartKeys[param] = GlobalKey();
@@ -1102,7 +964,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'Temperature',
         'Humidity',
         'Light Intensity',
-        'Wind Speed',
+        'Wind',
         'Solar Irradiance',
       ];
       for (var param in params) {
@@ -3447,20 +3309,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     // Remove parameters with empty lists (i.e., all values were null)
     parametersData.removeWhere((key, value) => value.isEmpty);
 
-    // ✅ Print statement to debug parsing (focus on RainfallHourlyComulative)
-    print('=== VD Parsing Debug ===');
-    print('Total items processed: ${items.length}');
-    print(
-        'Parameter keys found: ${parameterKeys.length} - ${parameterKeys.join(', ')}');
-    print(
-        'RainfallHourlyComulative list length: ${parametersData['RainfallHourlyComulative']?.length ?? 0}');
     if (parametersData['RainfallHourlyComulative'] != null) {
       parametersData['RainfallHourlyComulative']!.forEach((dataPoint) {
         print('  ${dataPoint.timestamp}: ${dataPoint.value}');
       });
     }
-    print('Total non-empty parameters: ${parametersData.length}');
-    print('=== End VD Parsing Debug ===');
 
     return parametersData;
   }
@@ -5264,150 +5117,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     } else {}
   }
 
-  // Updated _buildWindCompass
-  Widget _buildWindCompass(String? winddirection) {
-    // Convert wind direction to double, default to 0 if invalid
-    double angle = 0;
-    try {
-      angle = double.parse(winddirection ?? '0');
-    } catch (e) {
-      angle = 0;
-    }
-
-    // Convert degrees to radians for rotation
-    final angleRad = angle * math.pi / 180;
-
-    return Column(
-      children: [
-        Container(
-          width: 150,
-          height: 150,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              // Compass background with ticks
-              CustomPaint(
-                painter: CompassBackgroundPainter(),
-                child: Container(width: 150, height: 150),
-              ),
-              // Compass cardinal directions (N, NE, E, SE, S, SW, W, NW)
-              Positioned(
-                top: 10,
-                child: Text(
-                  'N',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 20,
-                right: 20,
-                child: Text(
-                  'NE',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 10,
-                child: Text(
-                  'E',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 20,
-                right: 20,
-                child: Text(
-                  'SE',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 10,
-                child: Text(
-                  'S',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 20,
-                left: 20,
-                child: Text(
-                  'SW',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 10,
-                child: Text(
-                  'W',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 20,
-                left: 20,
-                child: Text(
-                  'NW',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              // Rotated needle for wind direction
-              Transform.rotate(
-                angle: angleRad,
-                child: CustomPaint(
-                  painter: CompassNeedlePainter(), // No angle parameter
-                  child: Container(width: 150, height: 150),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 8),
-        Text(
-          'Wind Direction: ${winddirection ?? 'N/A'}°',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
-
-// Updated _getParameterDisplayInfo with normalization
   Map<String, dynamic> _getParameterDisplayInfo(String paramName) {
     // Normalize the paramName by removing prefixes/suffixes like 'Current', 'Hourly', etc.
     // Handle AtmPressure explicitly to preserve "Atm Pressure"
@@ -5420,14 +5129,21 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     if (paramName == 'RainfallHourlyComulative') {
       return {'displayName': 'Rainfall', 'unit': 'mm'};
     }
-
     // Handle pH explicitly to preserve "pH"
     if (paramName.toLowerCase().contains('pH')) {
       return {
         'displayName': 'pH',
-        'unit': 'pH',
+        'unit': '',
       };
     }
+    // Handle Wind explicitly for combined Wind Speed and Wind Direction
+    if (paramName.toLowerCase().contains('wind')) {
+      return {
+        'displayName': 'Wind',
+        'unit': 'm/s, °',
+      };
+    }
+
     String normalized = paramName
         .replaceAll('Current', '')
         .replaceAll('Hourly', '')
@@ -5453,10 +5169,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       displayName = 'Rainfall';
     } else if (displayName.toLowerCase().contains('lightintens')) {
       displayName = 'Light Intensity';
-    } else if (displayName.toLowerCase().contains('windspeed')) {
-      displayName = 'Wind Speed';
-    } else if (displayName.toLowerCase().contains('winddirect')) {
-      displayName = 'Wind Direction';
     } else if (displayName.toLowerCase().contains('ammon')) {
       displayName = 'Ammonia';
     } else if (displayName.toLowerCase().contains('press')) {
@@ -5473,8 +5185,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       displayName = 'Hypochlorous';
     } else if (displayName.toLowerCase().contains('residualchlor')) {
       displayName = 'Chlorine';
-    } else if (displayName.toLowerCase().contains('pH')) {
-      displayName = 'pH';
     } else if (displayName.toLowerCase().contains('Phosphorus')) {
       displayName = 'Phosphorus';
     }
@@ -5497,22 +5207,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       unit = 'hPa';
     else if (paramName.contains('LightIntensity'))
       unit = 'Lux';
-    else if (paramName.contains('WindSpeed'))
-      unit = 'm/s';
-    else if (paramName.contains('WindDirection'))
-      unit = '°';
+    else if (paramName.contains('Wind'))
+      unit = 'm/s, °';
     else if (paramName.contains('Potassium'))
-      unit = 'mg/Kg';
+      unit = 'mg/kg';
     else if (paramName.contains('Nitrogen'))
-      unit = 'mg/Kg';
+      unit = 'mg/kg';
     else if (paramName.contains('Salinity'))
       unit = 'mg/L';
     else if (paramName.contains('ElectricalConductivity'))
       unit = 'µS/cm';
     else if (paramName.contains('Phosphorus'))
-      unit = 'mg/Kg';
+      unit = 'mg/kg';
     else if (paramName.contains('pH'))
-      unit = 'pH';
+      unit = '';
     else if (paramName.contains('Irradiance') ||
         paramName.contains('Radiation'))
       unit = 'W/m²';
@@ -5525,8 +5233,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       unit = 'ppm';
     else if (paramName.contains('EC'))
       unit = 'mS/cm';
-    else if (paramName.contains('pH'))
-      unit = '';
     else if (paramName.contains('Ammonia'))
       unit = 'PPM';
     else if (paramName.contains('Visibility'))
@@ -5536,7 +5242,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     return {'displayName': displayName, 'unit': unit};
   }
 
-// Updated _buildHorizontalStatsRow and _buildParamStat
   Widget _buildHorizontalStatsRow(bool isDarkMode) {
     if (widget.deviceName.startsWith('WQ')) {
       final tempStats = _calculateStatistics(tempData);
@@ -5599,12 +5304,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           _buildParamStat('Radiation', fsradiationStats['current']?[0], null,
               null, 'W/m²', isDarkMode,
               onTap: () => _scrollToChart('Radiation')),
-          _buildParamStat('Wind Speed', fswindspeedStats['current']?[0], null,
-              null, 'm/s', isDarkMode,
-              onTap: () => _scrollToChart('Wind Speed')),
-          _buildParamStat('Wind Direction', fswinddirectionStats['current']?[0],
-              null, null, '°', isDarkMode,
-              onTap: () => _scrollToChart('Wind Direction')),
+          _buildParamStat('Wind', fswindspeedStats['current']?[0], null, null,
+              'm/s, °', isDarkMode,
+              windDirection: fswinddirectionStats['current']?[0],
+              onTap: () => _scrollToChart('Wind')),
         ],
       );
     } else if (widget.deviceName.startsWith('CB')) {
@@ -5681,12 +5384,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentTemperature': 'Temperature',
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
-        'WindSpeed': 'Wind Speed',
+        'WindSpeed': 'Wind',
         'AtmPressure': 'Pressure',
-        'WindDirection': 'Wind Direction',
+        'WindDirection': 'Wind',
         'RainfallHourly': 'Rainfall'
       };
-      List<String> includedParameters = parameterLabels.keys.toList();
+      List<String> includedParameters =
+          parameterLabels.keys.where((key) => key != 'WindDirection').toList();
 
       List<Widget> children = NARLParametersData.entries
           .where((entry) => includedParameters.contains(entry.key))
@@ -5694,6 +5398,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         String label = parameterLabels[entry.key] ?? entry.key;
         double? current =
             entry.value.isNotEmpty ? entry.value.last.value : null;
+        double? windDirection;
+        if (label == 'Wind') {
+          windDirection = NARLParametersData['WindDirection']!.isNotEmpty
+              ? NARLParametersData['WindDirection']?.last.value
+              : null;
+        }
         String unit = '';
         if (label == 'Temperature')
           unit = '°C';
@@ -5703,12 +5413,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'lux';
         else if (label == 'Rainfall' || label == 'Rainfall Minutely')
           unit = 'mm';
-        else if (label == 'Wind Speed')
-          unit = 'm/s';
-        else if (label == 'Pressure')
-          unit = 'hpa';
-        else if (label == 'Wind Direction') unit = '°';
+        else if (label == 'Wind')
+          unit = 'm/s, °';
+        else if (label == 'Pressure') unit = 'hPa';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
+            windDirection: label == 'Wind' ? windDirection : null,
             onTap: () => _scrollToChart(label));
       }).toList();
       return Row(
@@ -5743,10 +5452,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'lux';
         else if (label == 'Rainfall' || label == 'Rainfall Minutely')
           unit = 'mm';
-        else if (label == 'Wind Speed')
-          unit = 'm/s';
+        else if (label == 'Wind')
+          unit = 'm/s, °';
         else if (label == 'Pressure')
-          unit = 'hpa';
+          unit = 'hPa';
         else if (label == 'Salinity')
           unit = 'mg/L';
         else if (label == 'Potassium')
@@ -5757,9 +5466,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'mg/kg';
         else if (label == 'EC' || label == 'Electrical Conductivity')
           unit = 'µS/cm';
-        else if (label == 'pH')
-          unit = '';
-        else if (label == 'Wind Direction') unit = '°';
+        else if (label == 'pH') unit = '';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
             onTap: () => _scrollToChart(label));
       }).toList();
@@ -5772,12 +5479,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentTemperature': 'Temperature',
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
-        'WindSpeed': 'Wind Speed',
+        'WindSpeed': 'Wind',
         'AtmPressure': 'Pressure',
-        'WindDirection': 'Wind Direction',
+        'WindDirection': 'Wind',
         'RainfallHourly': 'Rainfall'
       };
-      List<String> includedParameters = parameterLabels.keys.toList();
+      List<String> includedParameters =
+          parameterLabels.keys.where((key) => key != 'WindDirection').toList();
 
       List<Widget> children = MYParametersData.entries
           .where((entry) => includedParameters.contains(entry.key))
@@ -5785,6 +5493,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         String label = parameterLabels[entry.key] ?? entry.key;
         double? current =
             entry.value.isNotEmpty ? entry.value.last.value : null;
+        double? windDirection;
+        if (label == 'Wind') {
+          windDirection = MYParametersData['WindDirection']!.isNotEmpty
+              ? MYParametersData['WindDirection']?.last.value
+              : null;
+        }
         String unit = '';
         if (label == 'Temperature')
           unit = '°C';
@@ -5794,12 +5508,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'lux';
         else if (label == 'Rainfall' || label == 'Rainfall Minutely')
           unit = 'mm';
-        else if (label == 'Wind Speed')
-          unit = 'm/s';
-        else if (label == 'Pressure')
-          unit = 'hpa';
-        else if (label == 'Wind Direction') unit = '°';
+        else if (label == 'Wind')
+          unit = 'm/s, °';
+        else if (label == 'Pressure') unit = 'hPa';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
+            windDirection: label == 'Wind' ? windDirection : null,
             onTap: () => _scrollToChart(label));
       }).toList();
       return Row(
@@ -5811,12 +5524,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentTemperature': 'Temperature',
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
-        'WindSpeed': 'Wind Speed',
+        'WindSpeed': 'Wind',
         'AtmPressure': 'Pressure',
-        'WindDirection': 'Wind Direction',
+        'WindDirection': 'Wind',
         'RainfallHourly': 'Rainfall'
       };
-      List<String> includedParameters = parameterLabels.keys.toList();
+      List<String> includedParameters =
+          parameterLabels.keys.where((key) => key != 'WindDirection').toList();
 
       List<Widget> children = svParametersData.entries
           .where((entry) => includedParameters.contains(entry.key))
@@ -5824,6 +5538,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         String label = parameterLabels[entry.key] ?? entry.key;
         double? current =
             entry.value.isNotEmpty ? entry.value.last.value : null;
+        double? windDirection;
+        if (label == 'Wind') {
+          windDirection = svParametersData['WindDirection']!.isNotEmpty
+              ? svParametersData['WindDirection']?.last.value
+              : null;
+        }
         String unit = '';
         if (label == 'Temperature')
           unit = '°C';
@@ -5833,12 +5553,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'lux';
         else if (label == 'Rainfall' || label == 'Rainfall Minutely')
           unit = 'mm';
-        else if (label == 'Wind Speed')
-          unit = 'm/s';
-        else if (label == 'Pressure')
-          unit = 'hpa';
-        else if (label == 'Wind Direction') unit = '°';
+        else if (label == 'Wind')
+          unit = 'm/s, °';
+        else if (label == 'Pressure') unit = 'hPa';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
+            windDirection: label == 'Wind' ? windDirection : null,
             onTap: () => _scrollToChart(label));
       }).toList();
       return Row(
@@ -5881,11 +5600,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
         'RainfallHourly': 'Rainfall',
-        'WindSpeed': 'Wind Speed',
+        'WindSpeed': 'Wind',
         'AtmPressure': 'Pressure',
-        'WindDirection': 'Wind Direction'
+        'WindDirection': 'Wind'
       };
-      List<String> includedParameters = parameterLabels.keys.toList();
+      List<String> includedParameters =
+          parameterLabels.keys.where((key) => key != 'WindDirection').toList();
 
       List<Widget> children = cfParametersData.entries
           .where((entry) => includedParameters.contains(entry.key))
@@ -5893,6 +5613,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         String label = parameterLabels[entry.key] ?? entry.key;
         double? current =
             entry.value.isNotEmpty ? entry.value.last.value : null;
+        double? windDirection;
+        if (label == 'Wind') {
+          windDirection = cfParametersData['WindDirection']!.isNotEmpty
+              ? cfParametersData['WindDirection']?.last.value
+              : null;
+        }
         String unit = '';
         if (label == 'Temperature')
           unit = '°C';
@@ -5902,12 +5628,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'lux';
         else if (label == 'Rainfall')
           unit = 'mm';
-        else if (label == 'Wind Speed')
-          unit = 'm/s';
-        else if (label == 'Pressure')
-          unit = 'hpa';
-        else if (label == 'Wind Direction') unit = '°';
+        else if (label == 'Wind')
+          unit = 'm/s, °';
+        else if (label == 'Pressure') unit = 'hPa';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
+            windDirection: label == 'Wind' ? windDirection : null,
             onTap: () => _scrollToChart(label));
       }).toList();
       return Row(
@@ -5920,11 +5645,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         'CurrentHumidity': 'Humidity',
         'LightIntensity': 'Light Intensity',
         'RainfallHourly': 'Rainfall',
-        'WindSpeed': 'Wind Speed',
+        'WindSpeed': 'Wind',
         'AtmPressure': 'Pressure',
-        'WindDirection': 'Wind Direction'
+        'WindDirection': 'Wind'
       };
-      List<String> includedParameters = parameterLabels.keys.toList();
+      List<String> includedParameters =
+          parameterLabels.keys.where((key) => key != 'WindDirection').toList();
 
       List<Widget> children = csParametersData.entries
           .where((entry) => includedParameters.contains(entry.key))
@@ -5932,6 +5658,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         String label = parameterLabels[entry.key] ?? entry.key;
         double? current =
             entry.value.isNotEmpty ? entry.value.last.value : null;
+        double? windDirection;
+        if (label == 'Wind') {
+          windDirection = csParametersData['WindDirection']!.isNotEmpty
+              ? csParametersData['WindDirection']?.last.value
+              : null;
+        }
         String unit = '';
         if (label == 'Temperature')
           unit = '°C';
@@ -5941,12 +5673,11 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           unit = 'lux';
         else if (label == 'Rainfall')
           unit = 'mm';
-        else if (label == 'Wind Speed')
-          unit = 'm/s';
-        else if (label == 'Pressure')
-          unit = 'hpa';
-        else if (label == 'Wind Direction') unit = '°';
+        else if (label == 'Wind')
+          unit = 'm/s, °';
+        else if (label == 'Pressure') unit = 'hPa';
         return _buildParamStat(label, current, null, null, unit, isDarkMode,
+            windDirection: label == 'Wind' ? windDirection : null,
             onTap: () => _scrollToChart(label));
       }).toList();
       return Row(
@@ -5960,13 +5691,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   void _scrollToChart(String parameter) {
     setState(() {
       if (_selectedParam == parameter) {
-        // If the same parameter is clicked again, reset to initial view
+        // If the same parameter is clicked again, clear the selection to remove effects
         _selectedParam = null;
-        _scrollController.animateTo(
-          0,
-          duration: Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
       } else {
         // Scroll to the selected chart
         _selectedParam = parameter;
@@ -5991,14 +5717,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   Widget _buildParamStat(String label, double? current, double? min,
       double? max, String unit, bool isDarkMode,
-      {VoidCallback? onTap}) {
+      {double? windDirection, VoidCallback? onTap}) {
     final Map<String, IconData> parameterIcons = {
       'Atm Pressure': Icons.compress,
       'Light Intensity': Icons.wb_sunny,
       'Rainfall': Icons.cloudy_snowing,
       'Temperature': Icons.thermostat,
-      'Wind Direction': Icons.navigation,
-      'Wind Speed': Icons.air,
+      'Wind': Icons.air,
       'Humidity': Icons.water,
       'TDS': Icons.water_drop,
       'COD': Icons.science,
@@ -6018,6 +5743,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       'Salinity': Icons.waves,
       'Electrical Conductivity': Icons.electric_bolt,
     };
+
+    String displayValue = current != null ? current.toStringAsFixed(2) : '--';
+    if (label == 'Wind' && windDirection != null) {
+      String directionStr = _getWindDirection(windDirection);
+      displayValue =
+          '${current?.toStringAsFixed(2) ?? '--'} m/s from $directionStr';
+    } else if (label == 'Wind') {
+      displayValue = '${current?.toStringAsFixed(2) ?? '--'} m/s from --';
+    }
 
     final IconData icon = parameterIcons[label] ?? Icons.help;
 
@@ -6113,7 +5847,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
               ),
               const SizedBox(height: 4.0),
               Text(
-                '${current?.toStringAsFixed(2) ?? '-'} $unit',
+                displayValue,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: isDarkMode ? Colors.white : Colors.black,
@@ -6577,8 +6311,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Rainfall': fsrainData,
                                               'Radiation': fsradiationData,
                                               'Wind Speed': fswindspeedData,
-                                              'Wind Direction':
-                                                  fswinddirectionData,
                                             },
                                           ),
                                         if (widget.deviceName.startsWith('CB'))
@@ -6628,10 +6360,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Pressure': NARLParametersData[
                                                       'AtmPressure'] ??
                                                   [],
-                                              'Wind Direction':
-                                                  NARLParametersData[
-                                                          'WindDirection'] ??
-                                                      [],
                                               'Rainfall': NARLParametersData[
                                                       'RainfallHourly'] ??
                                                   [],
@@ -6687,10 +6415,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Pressure': MYParametersData[
                                                       'AtmPressure'] ??
                                                   [],
-                                              'Wind Direction':
-                                                  MYParametersData[
-                                                          'WindDirection'] ??
-                                                      [],
                                               'Rainfall': MYParametersData[
                                                       'RainfallHourly'] ??
                                                   [],
@@ -6738,10 +6462,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Pressure': cfParametersData[
                                                       'AtmPressure'] ??
                                                   [],
-                                              'Wind Direction':
-                                                  cfParametersData[
-                                                          'WindDirection'] ??
-                                                      [],
                                             },
                                           ),
                                         if (widget.deviceName.startsWith('CP'))
@@ -6767,10 +6487,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               'Pressure': csParametersData[
                                                       'AtmPressure'] ??
                                                   [],
-                                              'Wind Direction':
-                                                  csParametersData[
-                                                          'WindDirection'] ??
-                                                      [],
                                             },
                                           ),
 // Modified Builder widget for total rainfall display within the sidebar
@@ -7367,18 +7083,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                       if (widget.deviceName.startsWith('20'))
                                         _buildCurrentValue('Rain Level ',
                                             _currentrfdValue, 'mm'),
-                                      () {
-                                        if (widget.deviceName
-                                                .startsWith('IT') &&
-                                            iswinddirectionValid(
-                                                _lastwinddirection) &&
-                                            _lastwinddirection.isNotEmpty) {
-                                          return _buildWindCompass(
-                                              _lastwinddirection);
-                                        } else {
-                                          return SizedBox.shrink();
-                                        }
-                                      }(),
                                     ],
                                   ),
                                 ),
@@ -9424,130 +9128,10 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                         padding: const EdgeInsets.all(0.0),
                                         child: LayoutBuilder(
                                           builder: (context, constraints) {
-                                            return Column(
-                                                // children: [
-                                                // SizedBox(height: 0),
-                                                // if (widget.deviceName
-                                                //         .startsWith('WD') &&
-                                                //     isWindDirectionValid(
-                                                //         _lastWindDirection) &&
-                                                //     _lastWindDirection !=
-                                                //         null &&
-                                                //     _lastWindDirection
-                                                //         .isNotEmpty)
-                                                // Column(
-                                                //   children: [
-                                                //     Icon(
-                                                //       Icons.wind_power,
-                                                //       size: 40,
-                                                //       color: Colors.white,
-                                                //     ),
-                                                //     SizedBox(height: 0),
-                                                //     Text(
-                                                //       'Wind Direction : $_lastWindDirection',
-                                                //       style: TextStyle(
-                                                //         fontWeight:
-                                                //             FontWeight.bold,
-                                                //         fontSize: 20,
-                                                //         color: Colors.white,
-                                                //       ),
-                                                //     ),
-                                                //   ],
-                                                // ),
-                                                // if (widget.deviceName
-                                                //     .startsWith('WF'))
-                                                //   Column(
-                                                //     children: [
-                                                //       SizedBox(height: 0),
-                                                //       InkWell(
-                                                //         onTap: () {
-                                                //           Navigator.push(
-                                                //             context,
-                                                //             MaterialPageRoute(
-                                                //               builder: (context) =>
-                                                //                   WeatherForecastPage(
-                                                //                 deviceName: widget
-                                                //                     .deviceName,
-                                                //                 sequentialName:
-                                                //                     widget
-                                                //                         .sequentialName,
-                                                //               ),
-                                                //             ),
-                                                //           );
-                                                //         },
-                                                //         child: Column(
-                                                //           children: [
-                                                //             Icon(
-                                                //               Icons.cloud,
-                                                //               size: 40,
-                                                //               color:
-                                                //                   Colors.white,
-                                                //             ),
-                                                //             SizedBox(height: 8),
-                                                //             Text(
-                                                //               'Weather Forecast',
-                                                //               style: TextStyle(
-                                                //                 fontWeight:
-                                                //                     FontWeight
-                                                //                         .bold,
-                                                //                 fontSize: 20,
-                                                //                 color: Colors
-                                                //                     .white,
-                                                //               ),
-                                                //             ),
-                                                //           ],
-                                                //         ),
-                                                //       ),
-                                                //     ],
-                                                //   ),
-                                                // SizedBox(height: 0),
-                                                // if (widget.deviceName
-                                                //     .startsWith('TE'))
-                                                //   Text(
-                                                //     'RSSI Value : $_lastRSSI_Value',
-                                                //     style: TextStyle(
-                                                //       fontWeight:
-                                                //           FontWeight.bold,
-                                                //       fontSize: 20,
-                                                //       color: Colors.white,
-                                                //     ),
-                                                //   ),
-                                                // ],
-                                                );
+                                            return Column();
                                           },
                                         ),
                                       ),
-                                      // Padding(
-                                      //   padding: const EdgeInsets.all(0.0),
-                                      //   child: Column(
-                                      //     children: [
-                                      //       if (widget.deviceName
-                                      //           .startsWith('CL'))
-                                      //         _buildCurrentValue(
-                                      //             'Chlorine Level',
-                                      //             _currentChlorineValue,
-                                      //             'mg/L'),
-                                      //       if (widget.deviceName
-                                      //           .startsWith('20'))
-                                      //         _buildCurrentValue('Rain Level ',
-                                      //             _currentrfdValue, 'mm'),
-                                      //       () {
-                                      //         if (widget.deviceName
-                                      //                 .startsWith('IT') &&
-                                      //             iswinddirectionValid(
-                                      //                 _lastwinddirection) &&
-                                      //             _lastwinddirection != null &&
-                                      //             _lastwinddirection
-                                      //                 .isNotEmpty) {
-                                      //           return _buildWindCompass(
-                                      //               _lastwinddirection);
-                                      //         } else {
-                                      //           return SizedBox.shrink();
-                                      //         }
-                                      //       }(),
-                                      //     ],
-                                      //   ),
-                                      // ),
                                       if (widget.deviceName.startsWith('WQ'))
                                         buildStatisticsTable(),
                                       if (widget.deviceName.startsWith('CB'))
@@ -9558,7 +9142,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                         buildDOStatisticsTable(),
                                       if (widget.deviceName.startsWith('IT'))
                                         buildITStatisticsTable(),
-
                                       if (widget.deviceName
                                               .startsWith('WD211') ||
                                           (widget.deviceName
@@ -11470,41 +11053,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   ) {
     if (speedData.isEmpty) return const SizedBox.shrink();
 
-    // No conversion to km/h, keep original units (assuming m/s from API)
-    final convertedSpeed = speedData; // No transformation needed
+    // Keep original units (m/s from API)
+    final convertedSpeed = speedData;
 
     final double maxSpeed =
         convertedSpeed.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final double offset = maxSpeed * 0.1 + 1; // Small buffer for arrows
 
     final bool hasDirection =
         directionData.isNotEmpty && directionData.length == speedData.length;
-
-    List<CartesianChartAnnotation> annotations = [];
-    if (hasDirection) {
-      for (int i = 0; i < convertedSpeed.length; i++) {
-        final double degrees = directionData[i].value;
-        annotations.add(
-          CartesianChartAnnotation(
-            // Corrected to use ChartAnnotation from Syncfusion
-            coordinateUnit:
-                CoordinateUnit.point, // Changed from 'data' to 'point'
-            region: AnnotationRegion.chart,
-            x: convertedSpeed[i].timestamp,
-            y: maxSpeed + offset,
-            widget: Transform.rotate(
-              angle: (degrees * math.pi / 180) +
-                  math.pi / 2, // Adjust rotation for "from" direction
-              child: const Icon(
-                Icons.arrow_forward,
-                size: 20,
-                color: Colors.black,
-              ),
-            ),
-          ),
-        );
-      }
-    }
 
     bool isSelected = _selectedParam == title;
 
@@ -11516,15 +11072,15 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         key: _chartKeys[title],
         width: double.infinity,
         height: MediaQuery.of(context).size.width < 800 ? 400 : 500,
-        margin: EdgeInsets.all(10),
+        margin: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16.0),
           color: isDarkMode
-              ? Color.fromARGB(150, 0, 0, 0)
-              : Color.fromARGB(173, 227, 220, 220),
+              ? const Color.fromARGB(150, 0, 0, 0)
+              : const Color.fromARGB(173, 227, 220, 220),
           border: isSelected
               ? Border.all(
-                  color: isDarkMode ? Colors.deepOrange : Colors.deepOrange,
+                  color: Colors.deepOrange,
                   width: 2.0,
                 )
               : null,
@@ -11597,13 +11153,14 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                           child: Listener(
                             onPointerSignal: (PointerSignalEvent event) {
                               if (event is PointerScrollEvent &&
-                                  isShiftPressed) {}
+                                  isShiftPressed) {
+                                // reserved for horizontal scroll
+                              }
                             },
                             child: SfCartesianChart(
-                              // annotations: annotations, // Add this for arrows
                               plotAreaBackgroundColor: isDarkMode
-                                  ? Color.fromARGB(100, 0, 0, 0)
-                                  : Color.fromARGB(189, 222, 218, 218),
+                                  ? const Color.fromARGB(100, 0, 0, 0)
+                                  : const Color.fromARGB(189, 222, 218, 218),
                               primaryXAxis: DateTimeAxis(
                                 dateFormat: _lastSelectedRange == 'single'
                                     ? DateFormat('MM/dd hh:mm a')
@@ -11637,18 +11194,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     ? null
                                     : 1.0,
                                 enableAutoIntervalOnZooming: true,
-                                majorGridLines: _lastSelectedRange ==
-                                            'single' ||
-                                        _lastSelectedRange == '3months' ||
-                                        _lastSelectedRange == '1year'
-                                    ? MajorGridLines(
-                                        width: 1.0,
-                                        dashArray: [5, 5],
-                                        color: isDarkMode
-                                            ? Color.fromARGB(255, 141, 144, 148)
-                                            : Color.fromARGB(255, 48, 48, 48),
-                                      )
-                                    : MajorGridLines(width: 0),
+                                majorGridLines:
+                                    _lastSelectedRange == 'single' ||
+                                            _lastSelectedRange == '3months' ||
+                                            _lastSelectedRange == '1year'
+                                        ? MajorGridLines(
+                                            width: 1.0,
+                                            dashArray: [5, 5],
+                                            color: isDarkMode
+                                                ? const Color.fromARGB(
+                                                    255, 141, 144, 148)
+                                                : const Color.fromARGB(
+                                                    255, 48, 48, 48),
+                                          )
+                                        : MajorGridLines(width: 0),
                                 majorTickLines: MajorTickLines(
                                   size: 6.0,
                                   width: 1.0,
@@ -11659,14 +11218,13 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                         _lastSelectedRange == '3months' ||
                                         _lastSelectedRange == '1year'
                                     ? []
-                                    : _generateNoonPlotBands(convertedSpeed,
-                                        isDarkMode), // Fixed data reference
+                                    : _generateNoonPlotBands(
+                                        convertedSpeed, isDarkMode),
                               ),
                               primaryYAxis: NumericAxis(
                                 minimum: 0,
                                 title: AxisTitle(
-                                  text:
-                                      '(m/s)', // Updated to reflect original unit
+                                  text: '(m/s)', // keep original unit
                                   textStyle: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: isDarkMode
@@ -11678,8 +11236,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   color:
                                       isDarkMode ? Colors.white : Colors.black,
                                 ),
-                                axisLine: AxisLine(width: 1),
-                                majorGridLines: MajorGridLines(width: 0),
+                                axisLine: const AxisLine(width: 1),
+                                majorGridLines: const MajorGridLines(width: 0),
                               ),
                               trackballBehavior: TrackballBehavior(
                                 enable: true,
@@ -11687,7 +11245,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                 lineType: TrackballLineType.vertical,
                                 lineColor: isDarkMode
                                     ? Colors.blue
-                                    : Color.fromARGB(255, 42, 147, 212),
+                                    : const Color.fromARGB(255, 42, 147, 212),
                                 lineWidth: 1,
                                 markerSettings: TrackballMarkerSettings(
                                   markerVisibility:
@@ -11697,7 +11255,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   borderWidth: 2,
                                   color: isDarkMode
                                       ? Colors.blue
-                                      : Color.fromARGB(255, 42, 147, 212),
+                                      : const Color.fromARGB(255, 42, 147, 212),
                                 ),
                                 builder: (BuildContext context,
                                     TrackballDetails details) {
@@ -11707,6 +11265,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     if (time == null || value == null) {
                                       return const SizedBox();
                                     }
+
+                                    // Keep your existing datetime logic
                                     String formattedDate;
                                     if (_lastSelectedRange == '1year') {
                                       formattedDate =
@@ -11716,9 +11276,12 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                           DateFormat('MM/dd hh:mm a')
                                               .format(time);
                                     }
+
                                     String valueText =
-                                        'Speed: ${value.toStringAsFixed(1)} m/s'; // 1 decimal for precision
+                                        'Speed: ${value.toStringAsFixed(1)} m/s';
                                     String directionText = '';
+
+                                    Widget? arrowIcon;
                                     if (hasDirection &&
                                         details.pointIndex != null) {
                                       final double dir =
@@ -11726,28 +11289,49 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               .value;
                                       final String dirStr =
                                           _getWindDirection(dir);
-                                      directionText = ' from $dirStr';
+                                      directionText = ' from the $dirStr';
+
+                                      // Better arrow icon: compass-style navigation arrow
+                                      arrowIcon = Transform.rotate(
+                                        angle: (dir * math.pi / 180) +
+                                            math.pi, // extra π to flip direction
+                                        child: Icon(
+                                          Icons.navigation,
+                                          size: 24,
+                                          color: isDarkMode
+                                              ? Colors.white
+                                              : Colors.black,
+                                        ),
+                                      );
                                     }
+
                                     return Container(
-                                      padding: const EdgeInsets.all(8),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 12, vertical: 10),
                                       decoration: BoxDecoration(
                                         color: isDarkMode
-                                            ? Color.fromARGB(200, 0, 0, 0)
+                                            ? const Color.fromARGB(200, 0, 0, 0)
                                             : Colors.white,
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
                                         children: [
+                                          if (arrowIcon != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                  bottom: 4.0),
+                                              child: arrowIcon,
+                                            ),
                                           Text(
                                             formattedDate,
                                             style: TextStyle(
                                               color: isDarkMode
-                                                  ? Colors.white
-                                                  : Colors.black,
-                                              fontWeight: FontWeight.bold,
+                                                  ? Colors.white70
+                                                  : Colors.black87,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                           Text(
@@ -11756,6 +11340,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                               color: isDarkMode
                                                   ? Colors.white
                                                   : Colors.black,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                           ),
                                         ],

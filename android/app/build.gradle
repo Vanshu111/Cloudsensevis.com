@@ -60,6 +60,11 @@ android {
             debuggable false            // Ensure release is not debuggable
         }
     }
+
+      // ✅ Exclude bundled SQLite libraries (use Android's built-in SQLite instead)
+    packagingOptions {
+        exclude "lib/**/libsqlite3.so"
+    }
 }
 task deleteLogs {
     doLast {
