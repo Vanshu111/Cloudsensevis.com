@@ -114,7 +114,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
           children: [
             DrawerHeader(
               decoration: BoxDecoration(
-                color: isDarkMode ? Colors.grey[200] : Colors.blueGrey[900],
+                color: isDarkMode ? Colors.blueGrey[900] : Colors.grey[200],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,8 +145,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                   'Last Active: ${device.lastReceivedTime}',
                                   style: TextStyle(
                                     color: isDarkMode
-                                        ? Colors.black87
-                                        : Colors.white70,
+                                        ? Colors.white70
+                                        : Colors.black87,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -155,8 +155,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     'Latitude: ${device.latitude!.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       color: isDarkMode
-                                          ? Colors.black87
-                                          : Colors.white70,
+                                          ? Colors.white70
+                                          : Colors.black87,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -164,8 +164,8 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                                     'Longitude: ${device.longitude!.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       color: isDarkMode
-                                          ? Colors.black87
-                                          : Colors.white70,
+                                          ? Colors.white70
+                                          : Colors.black87,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -180,7 +180,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                   Text(
                     'Select Time Period',
                     style: TextStyle(
-                      color: isDarkMode ? Colors.black : Colors.white,
+                      color: isDarkMode ? Colors.white : Colors.black,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),

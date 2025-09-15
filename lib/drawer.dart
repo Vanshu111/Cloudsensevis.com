@@ -29,71 +29,160 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
       'officeharsh25@gmail.com'
     ];
 
+    final drawerBackgroundColor =
+        isDarkMode ? Colors.blueGrey[900]! : Colors.grey[200]!;
+
     return Drawer(
-      child: SafeArea(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // 🔹 Drawer Header
-            DrawerHeader(
-              decoration: BoxDecoration(
-                color: isDarkMode ? Colors.blueGrey[900] : Colors.grey[200],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _buildUserIcon(context),
-                      const SizedBox(width: 8),
-                      Text(
-                        userProvider.userEmail ?? 'Guest User',
-                        style: TextStyle(
-                          color: isDarkMode ? Colors.white : Colors.black87,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+      backgroundColor: drawerBackgroundColor, // Uniform background for drawer
+      child: Container(
+        color: drawerBackgroundColor, // Ensure ListView background matches
+        child: SafeArea(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              // 🔹 Drawer Header
+              DrawerHeader(
+                decoration: BoxDecoration(
+                  color: isDarkMode ? Colors.blueGrey[900] : Colors.grey[200],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _buildUserIcon(context),
+                        const SizedBox(width: 8),
+                        Text(
+                          userProvider.userEmail ?? 'Guest User',
+                          style: TextStyle(
+                            color: isDarkMode ? Colors.white : Colors.black87,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    userProvider.userEmail != null
-                        ? 'Welcome back!'
-                        : 'Please login to access all features',
-                    style: TextStyle(
-                      color: isDarkMode ? Colors.white70 : Colors.black54,
-                      fontSize: 12,
+                      ],
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      userProvider.userEmail != null
+                          ? 'Welcome back!'
+                          : 'Please login to access all features',
+                      style: TextStyle(
+                        color: isDarkMode ? Colors.white70 : Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // 🔹 Logged-in user options
+              if (userProvider.userEmail != null) ...[
+                if (adminEmails.contains(email)) ...[
+                  ListTile(
+                    leading: Icon(Icons.data_usage,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('My Data'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await Future.delayed(const Duration(milliseconds: 200));
+                      Navigator.of(context, rootNavigator: true)
+                          .pushNamed('/admin');
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(
+                        isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('Theme'),
+                    onTap: () => themeProvider.toggleTheme(),
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.share,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('Share'),
+                    onTap: () async {
+                      Share.share(
+                        'Check out our app on Google Play Store: https://play.google.com/store/apps/details?id=com.CloudSenseVis',
+                        subject: 'Download Our App',
+                      );
+                      Navigator.pop(context);
+                    },
+                  ),
+                ] else ...[
+                  ListTile(
+                    leading: Icon(Icons.devices,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('My Devices'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await Future.delayed(const Duration(milliseconds: 200));
+                      if (email == '05agriculture.05@gmail.com') {
+                        Navigator.of(context, rootNavigator: true)
+                            .pushNamed('/deviceinfo');
+                      } else {
+                        Navigator.of(context, rootNavigator: true)
+                            .pushNamed('/devicelist');
+                      }
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.account_circle,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('Account Info'),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      await Future.delayed(const Duration(milliseconds: 200));
+                      Navigator.of(context, rootNavigator: true)
+                          .pushNamed('/accountinfo');
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(
+                        isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('Theme'),
+                    onTap: () => themeProvider.toggleTheme(),
+                  ),
+                  ListTile(
+                    leading: Icon(Icons.share,
+                        color: isDarkMode ? Colors.white : Colors.black),
+                    title: const Text('Share'),
+                    onTap: () async {
+                      Share.share(
+                        'Check out our app on Google Play Store: https://play.google.com/store/apps/details?id=com.CloudSenseVis',
+                        subject: 'Download Our App',
+                      );
+                      Navigator.pop(context);
+                    },
                   ),
                 ],
-              ),
-            ),
+                ListTile(
+                  leading: Icon(Icons.logout,
+                      color: isDarkMode ? Colors.white : Colors.black),
+                  title: const Text('Logout'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await Future.delayed(const Duration(milliseconds: 250));
+                    final rootCtx =
+                        Navigator.of(context, rootNavigator: true).context;
+                    await _handleLogout(rootCtx);
+                  },
+                ),
+                const Divider(),
+              ],
 
-            // 🔹 Logged-in user options
-            if (userProvider.userEmail != null) ...[
-              if (adminEmails.contains(email)) ...[
+              // 🔹 Guest user options
+              if (userProvider.userEmail == null) ...[
                 ListTile(
-                  leading: Icon(Icons.data_usage,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: const Text('My Data'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await Future.delayed(const Duration(milliseconds: 200));
-                    Navigator.of(context, rootNavigator: true)
-                        .pushNamed('/admin');
-                  },
-                ),
-                ListTile(
-                  leading: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      color: isDarkMode ? Colors.white : Colors.black),
+                  leading:
+                      Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
                   title: const Text('Theme'),
                   onTap: () => themeProvider.toggleTheme(),
                 ),
                 ListTile(
-                  leading: Icon(Icons.share,
-                      color: isDarkMode ? Colors.white : Colors.black),
+                  leading: const Icon(Icons.share),
                   title: const Text('Share'),
                   onTap: () async {
                     Share.share(
@@ -103,118 +192,33 @@ class _EndDrawerWidgetState extends State<EndDrawerWidget> {
                     Navigator.pop(context);
                   },
                 ),
-              ] else ...[
                 ListTile(
-                  leading: Icon(Icons.devices,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: const Text('My Devices'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await Future.delayed(const Duration(milliseconds: 200));
-                    if (email == '05agriculture.05@gmail.com') {
-                      Navigator.of(context, rootNavigator: true)
-                          .pushNamed('/deviceinfo');
-                    } else {
-                      Navigator.of(context, rootNavigator: true)
-                          .pushNamed('/devicelist');
-                    }
-                  },
-                ),
-                ListTile(
-                  leading: Icon(Icons.account_circle,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: const Text('Account Info'),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await Future.delayed(const Duration(milliseconds: 200));
-                    Navigator.of(context, rootNavigator: true)
-                        .pushNamed('/accountinfo');
-                  },
-                ),
-                ListTile(
-                  leading: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: const Text('Theme'),
-                  onTap: () => themeProvider.toggleTheme(),
-                ),
-                ListTile(
-                  leading: Icon(Icons.share,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  title: const Text('Share'),
-                  onTap: () async {
-                    Share.share(
-                      'Check out our app on Google Play Store: https://play.google.com/store/apps/details?id=com.CloudSenseVis',
-                      subject: 'Download Our App',
-                    );
-                    Navigator.pop(context);
-                  },
+                  leading: const Icon(Icons.login),
+                  title: const Text('Login/Signup'),
+                  onTap: () => _showLoginPopup(context),
                 ),
               ],
+
+              // 🔹 Products expandable section
               ListTile(
-                leading: Icon(Icons.logout,
+                leading: Icon(Icons.inventory,
                     color: isDarkMode ? Colors.white : Colors.black),
-                title: const Text('Logout'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await Future.delayed(const Duration(milliseconds: 250));
-                  final rootCtx =
-                      Navigator.of(context, rootNavigator: true).context;
-                  await _handleLogout(rootCtx);
+                title: const Text('Products'),
+                trailing: Icon(
+                  _isProductsExpanded
+                      ? Icons.arrow_drop_up
+                      : Icons.arrow_drop_down,
+                  color: isDarkMode ? Colors.white : Colors.black,
+                ),
+                onTap: () {
+                  setState(() {
+                    _isProductsExpanded = !_isProductsExpanded;
+                  });
                 },
               ),
-              const Divider(),
+              if (_isProductsExpanded) _buildProductsList(context),
             ],
-
-            // 🔹 Guest user options
-            if (userProvider.userEmail == null) ...[
-              ListTile(
-                leading: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode),
-                title: const Text('Theme'),
-                onTap: () => themeProvider.toggleTheme(),
-              ),
-              ListTile(
-                leading: const Icon(Icons.share),
-                title: const Text('Share'),
-                onTap: () async {
-                  Share.share(
-                    'Check out our app on Google Play Store: https://play.google.com/store/apps/details?id=com.CloudSenseVis',
-                    subject: 'Download Our App',
-                  );
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.login),
-                title: const Text('Login/Signup'),
-                onTap: () => _showLoginPopup(context),
-              ),
-            ],
-
-            // 🔹 Products expandable section
-            ListTile(
-              leading: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.inventory,
-                      color: isDarkMode ? Colors.white : Colors.black),
-                  const SizedBox(width: 8),
-                  Icon(
-                    _isProductsExpanded
-                        ? Icons.arrow_drop_up
-                        : Icons.arrow_drop_down,
-                    color: isDarkMode ? Colors.white : Colors.black,
-                  ),
-                ],
-              ),
-              title: const Text('Products'),
-              onTap: () {
-                setState(() {
-                  _isProductsExpanded = !_isProductsExpanded;
-                });
-              },
-            ),
-            if (_isProductsExpanded) _buildProductsList(context),
-          ],
+          ),
         ),
       ),
     );

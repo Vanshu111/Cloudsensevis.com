@@ -492,18 +492,18 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                   ),
                   SizedBox(
                       width: isMobile
-                          ? 8
-                          : (isTablet ? 12 : 16)), // Adjusted spacing
+                          ? 10
+                          : (isTablet ? 15 : 20)), // Adjusted spacing
                   Text(
                     'Cloud Sense Vis',
                     style: TextStyle(
                       color: isDarkMode ? Colors.white : Colors.black,
                       fontWeight: FontWeight.bold,
                       fontSize: screenWidth < 800
-                          ? 18 // Reduced from 20
+                          ? 20
                           : screenWidth <= 1024
-                              ? 22 // Reduced from 26
-                              : 40, // Reduced from 46
+                              ? 26
+                              : 40,
                     ),
                   ),
                 ],
@@ -513,7 +513,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
           if (!isMobile)
             Padding(
               padding: EdgeInsets.only(
-                  right: screenWidth < 800 ? 6 : 20), // Adjusted padding
+                  right: screenWidth < 800 ? 8 : 20), // Adjusted padding
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -529,23 +529,23 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                           style: TextStyle(
                             color: isDarkMode ? Colors.white : Colors.black,
                             fontWeight: FontWeight.bold,
-                            fontSize: isTablet ? 12 : 14, // Reduced from 14/16
+                            fontSize: isTablet ? 14 : 16, // Reduced from 14/16
                           ),
                         ),
                         Icon(Icons.arrow_drop_down,
                             color: isDarkMode ? Colors.white : Colors.black,
-                            size: isTablet ? 16 : 18), // Reduced from 18/20
+                            size: isTablet ? 18 : 20), // Reduced from 18/20
                       ],
                     ),
                   ),
                   SizedBox(
-                      width: screenWidth <= 1024 ? 10 : 20), // Adjusted spacing
+                      width: screenWidth <= 1024 ? 12 : 24), // Adjusted spacing
                   userProvider.userEmail != null
                       ? Row(
                           key: userButtonKey,
                           children: [
                             _buildUserIcon(context),
-                            const SizedBox(width: 6), // Reduced from 8
+                            const SizedBox(width: 8), // Reduced from 8
                             _buildUserDropdown(
                                 context, isDarkMode, isTablet, userButtonKey),
                           ],
@@ -562,19 +562,19 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                                       isDarkMode ? Colors.white : Colors.black,
                                   fontWeight: FontWeight.bold,
                                   fontSize:
-                                      isTablet ? 12 : 14, // Reduced from 14/16
+                                      isTablet ? 14 : 16, // Reduced from 14/16
                                 ),
                               ),
                               Icon(Icons.arrow_drop_down,
                                   color:
                                       isDarkMode ? Colors.white : Colors.black,
                                   size:
-                                      isTablet ? 16 : 18), // Reduced from 18/20
+                                      isTablet ? 18 : 20), // Reduced from 18/20
                             ],
                           ),
                         ),
                   SizedBox(
-                      width: screenWidth <= 1024 ? 10 : 20), // Adjusted spacing
+                      width: screenWidth <= 1024 ? 12 : 24), // Adjusted spacing
                   TextButton(
                     onPressed: () {
                       themeProvider.toggleTheme();
@@ -586,7 +586,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                               ? Icons.light_mode
                               : Icons.dark_mode,
                           color: isDarkMode ? Colors.white : Colors.black,
-                          size: isTablet ? 16 : 18, // Reduced from 18/20
+                          size: isTablet ? 18 : 20, // Reduced from 18/20
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -594,7 +594,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                           style: TextStyle(
                             color: isDarkMode ? Colors.white : Colors.black,
                             fontWeight: FontWeight.bold,
-                            fontSize: isTablet ? 12 : 14, // Reduced from 14/16
+                            fontSize: isTablet ? 14 : 16, // Reduced from 14/16
                           ),
                         ),
                       ],
@@ -612,7 +612,7 @@ class _AppBarWidgetState extends State<AppBarWidget> {
                   icon: Icon(
                     Icons.menu,
                     color: isDarkMode ? Colors.white : Colors.black,
-                    size: 20, // Reduced from default
+                    // size: 20, // Reduced from default
                   ),
                   onPressed: () {
                     Scaffold.of(context).openEndDrawer();

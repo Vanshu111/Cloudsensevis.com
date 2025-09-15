@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'package:cloud_sense_webapp/AdminPage';
 import 'package:cloud_sense_webapp/Product.dart';
 import 'package:cloud_sense_webapp/AccountInfo.dart';
-import 'package:cloud_sense_webapp/AdminPage';
+
 import 'package:cloud_sense_webapp/DeviceGraphPage.dart';
 import 'package:cloud_sense_webapp/DeviceListPage.dart';
 import 'package:cloud_sense_webapp/LoginPage.dart';
@@ -370,26 +371,58 @@ Future<void> setupNotifications() async {
           const String sequentialName = 'IIT Ropar Sensor';
           final sensorName = 'CP${deviceId.padLeft(3, '0')}';
 
-          // Directly navigate to DeviceGraphPage
-          if (navigatorKey.currentState != null) {
-            navigatorKey.currentState!.push(
-              MaterialPageRoute(
-                builder: (context) => DeviceGraphPage(
-                  deviceName: sensorName,
-                  sequentialName: sequentialName,
-                  backgroundImagePath: 'assets/backgroundd.jpg',
+          // Navigate to DeviceGraphPage
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (navigatorKey.currentState != null) {
+              navigatorKey.currentState!.push(
+                MaterialPageRoute(
+                  builder: (context) => DeviceGraphPage(
+                    deviceName: sensorName,
+                    sequentialName: sequentialName,
+                    backgroundImagePath: 'assets/backgroundd.jpg',
+                  ),
                 ),
-              ),
-            );
-          } else {
-            print("Navigator state not available, cannot navigate.");
-          }
+              );
+            } else {
+              print("Navigator state not available, cannot navigate.");
+            }
+          });
         } else {
           print("Invalid notification payload: ${details.payload}");
         }
       }
     },
   );
+}
+
+// Handle initial notification when app is launched from terminated state
+Future<void> handleInitialNotification() async {
+  RemoteMessage? initialMessage =
+      await FirebaseMessaging.instance.getInitialMessage();
+  if (initialMessage != null && initialMessage.data.isNotEmpty) {
+    print("Handling initial notification: ${initialMessage.messageId}");
+    String deviceId = initialMessage.data['device_id'] ?? '';
+    const String topic = 'WS/Campus'; // Hardcoded for CP devices
+    const String sequentialName = 'IIT Ropar Sensor';
+    final sensorName = 'CP${deviceId.padLeft(3, '0')}';
+
+    // Delay navigation until the widget tree is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (navigatorKey.currentState != null) {
+        navigatorKey.currentState!.push(
+          MaterialPageRoute(
+            builder: (context) => DeviceGraphPage(
+              deviceName: sensorName,
+              sequentialName: sequentialName,
+              backgroundImagePath: 'assets/backgroundd.jpg',
+            ),
+          ),
+        );
+      } else {
+        print("Navigator state not available for initial notification.");
+      }
+    });
+  }
 }
 
 class UserProvider extends ChangeNotifier {
@@ -423,42 +456,6 @@ class UserProvider extends ChangeNotifier {
   }
 }
 
-Future<String> determineInitialRoute() async {
-  try {
-    var currentUser = await Amplify.Auth.getCurrentUser();
-    var userAttributes = await Amplify.Auth.fetchUserAttributes();
-    String? email;
-    for (var attr in userAttributes) {
-      if (attr.userAttributeKey == AuthUserAttributeKey.email) {
-        email = attr.value;
-        break;
-      }
-    }
-
-    if (email != null) {
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('email', email);
-      // UserProvider will pick up the email via _loadUser
-    }
-
-    print(
-        'Determining initial route - User ID: ${currentUser.username}, Email: $email');
-    if (email?.trim().toLowerCase() == '05agriculture.05@gmail.com') {
-      print('Initial route set to /deviceinfo');
-      return '/deviceinfo';
-    } else if (adminEmails.contains(email?.trim().toLowerCase())) {
-      print('Initial route set to /admin');
-      return '/admin';
-    } else {
-      print('Initial route set to /devicelist');
-      return '/devicelist';
-    }
-  } catch (e) {
-    print('No user logged in or error: $e');
-    return '/';
-  }
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setPathUrlStrategy();
@@ -489,8 +486,8 @@ void main() async {
   );
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  // Handle notifications when app is opened from background or terminated
-  // Handle notifications when app is opened from background or terminated
+
+  // Handle notifications when app is opened from background or foreground
   FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) async {
     if (message.data.isNotEmpty) {
       String deviceId = message.data['device_id'] ?? '';
@@ -498,7 +495,7 @@ void main() async {
       const String sequentialName = 'IIT Ropar Sensor';
       final sensorName = 'CP${deviceId.padLeft(3, '0')}';
 
-      // Directly navigate to DeviceGraphPage
+      // Navigate to DeviceGraphPage
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (navigatorKey.currentState != null) {
           navigatorKey.currentState!.push(
@@ -517,6 +514,9 @@ void main() async {
     }
   });
 
+  // Handle initial notification when app is launched from terminated state
+  await handleInitialNotification();
+
   try {
     await Amplify.addPlugin(AmplifyAuthCognito());
     await Amplify.configure(amplifyconfig);
@@ -533,24 +533,19 @@ void main() async {
     await manageNotificationSubscription();
   });
 
-  // Determine initial route based on user authentication
-  String initialRoute = await determineInitialRoute();
-
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
-      child: MyApp(initialRoute: initialRoute),
+      child: const MyApp(),
     ),
   );
 }
 
 class MyApp extends StatelessWidget {
-  final String initialRoute;
-
-  MyApp({required this.initialRoute});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
