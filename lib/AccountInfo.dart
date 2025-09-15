@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'dart:ui';
 import 'package:cloud_sense_webapp/main.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:http/http.dart' as http;
-import 'LoginPage.dart';
+import 'LoginPage.dart'; // Make sure to import your login page file
 
 class AccountInfoPage extends StatefulWidget {
   @override

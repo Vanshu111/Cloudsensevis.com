@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:ui' as ui;
 import 'package:amplify_flutter/amplify_flutter.dart';
 import 'package:cloud_sense_webapp/appbar.dart';
 import 'package:cloud_sense_webapp/devicelocationinfo.dart';
@@ -15,6 +16,8 @@ import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'main.dart';
 import 'dart:async';
+import 'package:wave/wave.dart';
+import 'package:wave/config.dart';
 import 'package:universal_html/html.dart' as html;
 
 class ThemeProvider extends ChangeNotifier {
@@ -38,6 +41,476 @@ class ThemeProvider extends ChangeNotifier {
     _isDarkMode = prefs.getBool('isDarkMode') ?? true;
     notifyListeners();
   }
+}
+
+//Animation For Humidity
+class AnimatedWaveHumidityCard extends StatefulWidget {
+  final double humidity;
+  final String formattedValue;
+
+  const AnimatedWaveHumidityCard({
+    Key? key,
+    required this.humidity,
+    required this.formattedValue,
+  }) : super(key: key);
+
+  @override
+  _AnimatedWaveHumidityCardState createState() =>
+      _AnimatedWaveHumidityCardState();
+}
+
+class _AnimatedWaveHumidityCardState extends State<AnimatedWaveHumidityCard> {
+  // Helper to pick wave colors based on humidity
+  List<Color> _getWaveColors(double humidity) {
+    final t = (humidity / 100.0).clamp(0.0, 1.0);
+    const Color lowHumidityColor =
+        ui.Color.fromARGB(255, 61, 142, 180); // Light Blue
+    const Color highHumidityColor =
+        ui.Color.fromARGB(255, 4, 116, 168); // Deep Blue
+
+    // Interpolate to get the primary color
+    final Color primaryColor =
+        Color.lerp(lowHumidityColor, highHumidityColor, t)!;
+
+    // Return the primary color and a lighter, more transparent version for a nice effect
+    return [
+      primaryColor.withOpacity(0.5),
+      primaryColor,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final waveColors = _getWaveColors(widget.humidity);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    // The main content (Icon and Text) that will sit on top of the wave
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.water_drop_outlined,
+                color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+                size: 18),
+            const SizedBox(width: 4),
+            Text(
+              "Humidity",
+              style: TextStyle(
+                color:
+                    themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
+                fontSize: 13,
+                shadows: const [Shadow(color: Colors.black26, blurRadius: 2)],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "${widget.formattedValue} %",
+          style: TextStyle(
+            color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+            shadows: const [
+              Shadow(color: Colors.black38, blurRadius: 3, offset: Offset(1, 1))
+            ],
+          ),
+        ),
+      ],
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: TweenAnimationBuilder<double>(
+        // Animate the wave height from 0 to the target humidity percentage
+        tween: Tween(begin: 0.0, end: widget.humidity),
+        duration: const Duration(milliseconds: 1200), // Control the fill speed
+        curve: Curves.easeInOutCubic,
+        builder: (context, animatedHumidity, child) {
+          return Stack(
+            alignment: Alignment.center,
+            children: [
+              // Layer 1: The background color of the card
+              Container(color: Colors.white.withOpacity(0.1)),
+
+              // Layer 2: The animated wave
+              WaveWidget(
+                config: CustomConfig(
+                  colors: waveColors,
+                  // The wave's height is controlled by the animation
+                  heightPercentages: [
+                    (100 - animatedHumidity) / 100, // Inverted for fill effect
+                    (102 - animatedHumidity) /
+                        100, // Second wave slightly offset
+                  ],
+                  durations: [8000, 6000], // Slower is calmer
+                ),
+                waveAmplitude: 2.0, // How tall the waves are
+                size: const Size(double.infinity, double.infinity),
+                backgroundColor: Colors
+                    .transparent, // Important: so the container behind shows
+              ),
+
+              // Layer 3: The content
+              child!,
+            ],
+          );
+        },
+        child: content,
+      ),
+    );
+  }
+}
+
+// --- WIDGET FOR WIND ANIMATION ---
+class AnimatedWindCard extends StatefulWidget {
+  final double windSpeed;
+  final String formattedValue;
+
+  const AnimatedWindCard({
+    Key? key,
+    required this.windSpeed,
+    required this.formattedValue,
+  }) : super(key: key);
+
+  @override
+  State<AnimatedWindCard> createState() => _AnimatedWindCardState();
+}
+
+class _AnimatedWindCardState extends State<AnimatedWindCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    if (widget.windSpeed > 0) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedWindCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.windSpeed > 0 && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (widget.windSpeed <= 0 && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.lightBlue.shade700.withOpacity(0.8),
+                  Colors.blue.shade900.withOpacity(0.9)
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: widget.windSpeed > 0
+                ? CustomPaint(
+                    painter: _WindPainter(
+                      animation: _controller,
+                      windSpeed: widget.windSpeed,
+                    ),
+                    size: ui.Size.infinite,
+                  )
+                : const SizedBox.shrink(),
+          ),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.wind_power,
+                      color: themeProvider.isDarkMode
+                          ? Colors.white
+                          : Colors.black,
+                      size: 18),
+                  const SizedBox(width: 4),
+                  Text("Wind Speed",
+                      style: TextStyle(
+                          color: themeProvider.isDarkMode
+                              ? Colors.white70
+                              : Colors.black87,
+                          fontSize: 13)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "${widget.formattedValue} m/s",
+                style: TextStyle(
+                    color:
+                        themeProvider.isDarkMode ? Colors.white : Colors.black,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Helper class for a single wind particle
+class _WindParticle {
+  double x;
+  double y;
+  final double size;
+  final double offset;
+
+  _WindParticle()
+      : x = Random().nextDouble(),
+        y = Random().nextDouble(),
+        size = Random().nextDouble() * 2 + 1,
+        offset = Random().nextDouble();
+}
+
+// Custom Painter to draw the flowing wind particles
+class _WindPainter extends CustomPainter {
+  final Animation<double> animation;
+  final double windSpeed;
+  late final List<_WindParticle> particles;
+
+  _WindPainter({required this.animation, required this.windSpeed})
+      : super(repaint: animation) {
+    final int particleCount = (windSpeed * 10).clamp(10, 80).toInt();
+    particles = List.generate(particleCount, (_) => _WindParticle());
+  }
+
+  @override
+  void paint(ui.Canvas canvas, ui.Size size) {
+    final paint = ui.Paint()..color = Colors.white.withOpacity(0.5);
+
+    for (var particle in particles) {
+      final progress = (animation.value + particle.offset) % 1.0;
+      final currentX =
+          ui.lerpDouble(-size.width * 0.2, size.width * 1.2, progress)!;
+      final currentY = particle.y * size.height +
+          (sin(progress * 2 * pi) * particle.size * 2);
+
+      double opacity = 1.0;
+      if (progress < 0.1) {
+        opacity = progress / 0.1;
+      } else if (progress > 0.9) {
+        opacity = (1.0 - progress) / 0.1;
+      }
+      paint.color = Colors.white.withOpacity(opacity * 0.5);
+
+      canvas.drawCircle(ui.Offset(currentX, currentY), particle.size, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+}
+
+class _WindGust {
+  final double y = Random().nextDouble();
+  final double offset = Random().nextDouble();
+  final double curvePoint = Random().nextDouble() * 50 + 20;
+  final double curveHeight = (Random().nextDouble() - 0.5) * 10;
+}
+
+// --- WIDGET FOR RAINFALL ANIMATION ---
+// --- WIDGET FOR RAINDROP ANIMATION ---
+
+class AnimatedRainfallCard extends StatefulWidget {
+  final double rainfall;
+  final String formattedValue;
+  const AnimatedRainfallCard(
+      {Key? key, required this.rainfall, required this.formattedValue})
+      : super(key: key);
+
+  @override
+  State<AnimatedRainfallCard> createState() => _AnimatedRainfallCardState();
+}
+
+class _AnimatedRainfallCardState extends State<AnimatedRainfallCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+    if (widget.rainfall > 0) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedRainfallCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rainfall > 0 && !_controller.isAnimating) {
+      _controller.repeat();
+    } else if (widget.rainfall <= 0 && _controller.isAnimating) {
+      _controller.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final content = Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.grain,
+                color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+                size: 18),
+            const SizedBox(width: 4),
+            Text("Rainfall",
+                style: TextStyle(
+                    color: themeProvider.isDarkMode
+                        ? Colors.white70
+                        : Colors.black87,
+                    fontSize: 13)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text("${widget.formattedValue} mm",
+            style: TextStyle(
+                color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 16),
+            textAlign: TextAlign.center),
+      ],
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // --- THIS CONTAINER IS NOW A GRADIENT ---
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Colors.lightBlue.shade700.withOpacity(0.8),
+                  Colors.blue.shade900
+                      .withOpacity(0.9) // A slightly darker blue for depth
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+          ),
+          if (widget.rainfall > 0)
+            CustomPaint(
+              painter: _RainPainter(
+                animation: _controller,
+                rainfall: widget.rainfall,
+              ),
+              size: Size.infinite,
+            ),
+          content,
+        ],
+      ),
+    );
+  }
+}
+
+// Helper class for the properties of a single raindrop
+class _RainDrop {
+  final double x = Random().nextDouble(); // Horizontal position (0.0 to 1.0)
+  final double size =
+      Random().nextDouble() * 4 + 2; // Size of the drop (2.0 to 6.0)
+  final double offset = Random().nextDouble(); // Animation start offset
+  // Heavier/larger drops can appear to fall faster
+  final double speedFactor =
+      Random().nextDouble() * 0.5 + 0.8; // Speed variation (0.8 to 1.3)
+}
+
+// The CustomPainter that draws the falling RAINDROPS
+class _RainPainter extends CustomPainter {
+  final Animation<double> animation;
+  final double rainfall;
+  late final List<_RainDrop> drops;
+
+  _RainPainter({required this.animation, required this.rainfall})
+      : super(repaint: animation) {
+    // Data-Driven Intensity: More rainfall = more drops
+    final int dropCount = (rainfall * 10).clamp(10, 80).toInt();
+    drops = List.generate(dropCount, (_) => _RainDrop());
+  }
+
+  @override
+  void paint(ui.Canvas canvas, ui.Size size) {
+    // Use a fill paint instead of a stroke paint
+    final paint = ui.Paint()..color = Colors.white.withOpacity(0.7);
+
+    for (var drop in drops) {
+      // Calculate progress, incorporating the drop's individual speed
+      final progress = (animation.value * drop.speedFactor + drop.offset) % 1.0;
+
+      // Animate the drop falling from top to bottom
+      final start = ui.Offset(drop.x * size.width, -drop.size * 2);
+      final end = ui.Offset(drop.x * size.width, size.height + drop.size * 2);
+      final currentPos = ui.Offset.lerp(start, end, progress)!;
+
+      // Create a teardrop shape path using ui.Path
+      final path = ui.Path();
+      path.moveTo(
+          currentPos.dx, currentPos.dy - drop.size); // Top point of the drop
+      path.quadraticBezierTo(
+        currentPos.dx - drop.size,
+        currentPos.dy + drop.size, // Left curve control
+        currentPos.dx, currentPos.dy + drop.size, // Bottom center
+      );
+      path.quadraticBezierTo(
+        currentPos.dx + drop.size,
+        currentPos.dy + drop.size, // Right curve control
+        currentPos.dx, currentPos.dy - drop.size, // Back to top point
+      );
+      path.close();
+
+      // Draw the path to the canvas
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 // Helper function to determine a GRADIENT based on temperature
@@ -302,7 +775,6 @@ class _HomePageState extends State<HomePage> {
   bool _isHoveredbutton = false;
   bool _isPressed = false;
 
-  // Add a GlobalKey for the Scaffold
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, dynamic>? nearestDevice;
   String? errorMessage;
@@ -312,41 +784,39 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic>? selectedDevice;
   Timer? _pollingTimer;
 
-  // Calculate responsive values based on screen width
   int getCrossAxisCount(double screenWidth) {
     if (screenWidth < 600) {
-      return 1; // Mobile: 1 card per row
+      return 1;
     } else if (screenWidth < 1300) {
-      return 2; // Tablet: 2 cards per row
+      return 2;
     } else {
-      return 3; // Desktop: 3 cards per row
+      return 3;
     }
   }
 
   double getCardAspectRatio(double screenWidth) {
     if (screenWidth < 600) {
-      return 0.6; // Mobile: slightly taller cards
+      return 0.6;
     } else if (screenWidth < 1300) {
-      return 0.8; // Tablet: balanced aspect ratio
+      return 0.8;
     } else {
-      return 1.3; // Desktop: original aspect ratio
+      return 1.3;
     }
   }
 
   double getHorizontalPadding(double screenWidth) {
     if (screenWidth < 600) {
-      return 10; // Mobile: minimal padding
+      return 10;
     } else if (screenWidth < 1300) {
-      return 40; // Tablet: moderate padding
+      return 40;
     } else {
-      return 70; // Desktop: no extra padding (uses main container padding)
+      return 70;
     }
   }
 
   @override
   void initState() {
     super.initState();
-
     fetchDevicesAndNearest();
     _pollingTimer = Timer.periodic(const Duration(seconds: 59), (timer) {
       fetchDevicesAndNearest(silent: true);
@@ -390,7 +860,7 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     try {
-      print('Navigating for user: $email'); // Debug log
+      print('Navigating for user: $email');
       if ([
         'sejalsankhyan2001@gmail.com',
         'pallavikrishnan01@gmail.com',
@@ -450,8 +920,6 @@ class _HomePageState extends State<HomePage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         devices = data["devices"] ?? [];
-
-        // 🔹 Total devices count
         _totalDevices = devices.length;
 
         if (devices.isEmpty) {
@@ -471,7 +939,6 @@ class _HomePageState extends State<HomePage> {
 
         if (mounted) {
           setState(() {
-            // update selected device
             if (selectedDevice == null) {
               selectedDevice = demoDevice;
             } else {
@@ -483,7 +950,6 @@ class _HomePageState extends State<HomePage> {
               );
               selectedDevice = Map<String, dynamic>.from(updated);
             }
-
             if (!silent) {
               isLoading = false;
             }
@@ -509,7 +975,6 @@ class _HomePageState extends State<HomePage> {
     if (lastLocationCheck != null &&
         DateTime.now().difference(lastLocationCheck!) < cacheDuration &&
         cachedNearest != null) {
-      // debugPrint("Using cached nearest device");
       if (mounted) {
         setState(() {
           nearestDevice = cachedNearest;
@@ -622,7 +1087,6 @@ class _HomePageState extends State<HomePage> {
     final num? number = num.tryParse(str);
     if (number != null) {
       double rounded = double.parse(number.toStringAsFixed(4));
-
       return rounded.toString();
     }
     return str;
@@ -637,7 +1101,6 @@ class _HomePageState extends State<HomePage> {
 
   IconData _getIconForKey(String key) {
     key = key.toLowerCase();
-
     if (key.contains("humidity")) return Icons.water_drop;
     if (key.contains("pressure")) return Icons.speed;
     if (key.contains("light")) return Icons.light_mode;
@@ -648,7 +1111,6 @@ class _HomePageState extends State<HomePage> {
     if (key.contains("soil")) return Icons.grass;
     if (key.contains("rain")) return Icons.cloudy_snowing;
     if (key.contains("wind")) return Icons.wind_power;
-
     return Icons.circle;
   }
 
@@ -700,10 +1162,7 @@ class _HomePageState extends State<HomePage> {
       RegExp(r'([a-z])([A-Z])'),
       (match) => '${match.group(1)} ${match.group(2)}',
     );
-
-    // Special case for RainfallHourly to display as "Rainfall"
     if (paramName == 'RainfallHourly') return 'Rainfall';
-
     return result[0].toUpperCase() + result.substring(1);
   }
 
@@ -736,7 +1195,6 @@ class _HomePageState extends State<HomePage> {
     if (paramName.contains('Ammonia')) return 'PPM';
     if (paramName.contains('Visibility')) return 'm';
     if (paramName.contains('ElectrodeSignal')) return 'mV';
-
     return '';
   }
 
@@ -747,9 +1205,6 @@ class _HomePageState extends State<HomePage> {
     final themeProvider = Provider.of<ThemeProvider>(context);
     Provider.of<UserProvider>(context);
     final currentDate = DateFormat("EEEE, dd MMMM yyyy").format(DateTime.now());
-    DateFormat("hh:mm a").format(DateTime.now());
-
-    // GlobalKeys for positioning dropdowns
 
     double paragraphFont = screenWidth < 800
         ? 14
@@ -758,7 +1213,7 @@ class _HomePageState extends State<HomePage> {
             : 18;
 
     return LayoutBuilder(builder: (context, constraints) {
-      final isWideScreen = screenWidth > 1024; // Desktop
+      final isWideScreen = screenWidth > 1024;
 
       return Scaffold(
         key: _scaffoldKey,
@@ -787,7 +1242,6 @@ class _HomePageState extends State<HomePage> {
             SingleChildScrollView(
               child: Column(
                 children: [
-                  // Main content with padding
                   Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: screenWidth < 800
@@ -868,7 +1322,6 @@ class _HomePageState extends State<HomePage> {
                                                           "deviceid#topic"]
                                                       .toString() ==
                                                   "1#WS/Campus/1") {
-                                                // Check nearest
                                                 bool gotLocation =
                                                     await _getUserLocationAndFindNearest();
                                                 if (!gotLocation && mounted) {
@@ -876,7 +1329,6 @@ class _HomePageState extends State<HomePage> {
                                                     errorMessage =
                                                         "Please enable location access to find nearest device.";
                                                   });
-                                                  // Auto clear after 3 seconds
                                                   Future.delayed(
                                                       const Duration(
                                                           seconds: 3), () {
@@ -888,7 +1340,6 @@ class _HomePageState extends State<HomePage> {
                                                   });
                                                 }
                                               } else {
-                                                // Back to Device 11
                                                 setState(() {
                                                   selectedDevice = devices
                                                       .cast<
@@ -1076,10 +1527,11 @@ class _HomePageState extends State<HomePage> {
                                                                           const EdgeInsets
                                                                               .all(
                                                                               4),
-                                                                      // AFTER
                                                                       decoration: BoxDecoration(
-                                                                          gradient: _getTemperatureGradient(selectedDevice?["CurrentTemperature"]), // <-- Use the new gradient function here
-                                                                          borderRadius: BorderRadius.circular(8)),
+                                                                          gradient: _getTemperatureGradient(selectedDevice?[
+                                                                              "CurrentTemperature"]),
+                                                                          borderRadius:
+                                                                              BorderRadius.circular(8)),
                                                                       child:
                                                                           Column(
                                                                         mainAxisAlignment:
@@ -1119,27 +1571,50 @@ class _HomePageState extends State<HomePage> {
                                                                             "SignalStrength",
                                                                             "BatteryVoltage",
                                                                             "RainfallDaily",
-                                                                            "RainfallWeekly"
+                                                                            "RainfallWeekly",
+                                                                            "LightIntensity"
                                                                           }.contains(e.key))
                                                                       .map((e) {
-                                                                    // ADD: Check for WindSpeed key first (before LightIntensity)
-
+                                                                    final double?
+                                                                        numericValue =
+                                                                        double.tryParse(e
+                                                                            .value
+                                                                            .toString());
+                                                                    final String
+                                                                        formattedValue =
+                                                                        _formatValue(
+                                                                            e.value);
                                                                     if (e.key ==
-                                                                        "LightIntensity") {
-                                                                      // This call remains the same, but it will now use the new animation code
-                                                                      return AnimatedLightCard(
-                                                                        luxValue:
-                                                                            _formatValue(e.value),
-                                                                        name: _getNameForKey(
-                                                                            e.key),
-                                                                        unit: _getUnitForKey(
-                                                                            e.key),
-                                                                        color: themeProvider.isDarkMode
-                                                                            ? Colors.white70
-                                                                            : Colors.black87,
+                                                                            "CurrentHumidity" &&
+                                                                        numericValue !=
+                                                                            null) {
+                                                                      return AnimatedWaveHumidityCard(
+                                                                        humidity:
+                                                                            numericValue,
+                                                                        formattedValue:
+                                                                            formattedValue,
+                                                                      );
+                                                                    } else if (e.key ==
+                                                                            "WindSpeed" &&
+                                                                        numericValue !=
+                                                                            null) {
+                                                                      return AnimatedWindCard(
+                                                                        windSpeed:
+                                                                            numericValue,
+                                                                        formattedValue:
+                                                                            formattedValue,
+                                                                      );
+                                                                    } else if (e.key ==
+                                                                            "RainfallHourly" &&
+                                                                        numericValue !=
+                                                                            null) {
+                                                                      return AnimatedRainfallCard(
+                                                                        rainfall:
+                                                                            numericValue,
+                                                                        formattedValue:
+                                                                            formattedValue,
                                                                       );
                                                                     } else {
-                                                                      // --- Build the default widget for all other items ---
                                                                       return Container(
                                                                         padding: const EdgeInsets
                                                                             .all(
@@ -1171,6 +1646,23 @@ class _HomePageState extends State<HomePage> {
                                                                       );
                                                                     }
                                                                   }).toList(),
+                                                                  if (!_isNullOrEmpty(
+                                                                      selectedDevice?[
+                                                                          "LightIntensity"]))
+                                                                    AnimatedLightCard(
+                                                                      luxValue:
+                                                                          _formatValue(
+                                                                              selectedDevice?["LightIntensity"]),
+                                                                      name: _getNameForKey(
+                                                                          "LightIntensity"),
+                                                                      unit: _getUnitForKey(
+                                                                          "LightIntensity"),
+                                                                      color: themeProvider.isDarkMode
+                                                                          ? Colors
+                                                                              .white70
+                                                                          : Colors
+                                                                              .black87,
+                                                                    ),
                                                                 ],
                                                               ),
                                                             ),
@@ -1210,14 +1702,13 @@ class _HomePageState extends State<HomePage> {
                                                                 padding:
                                                                     const EdgeInsets
                                                                         .all(4),
-                                                                // AFTER
-                                                                decoration:
-                                                                    BoxDecoration(
-                                                                        gradient:
-                                                                            _getTemperatureGradient(selectedDevice?[
-                                                                                "CurrentTemperature"]), // <-- Use the new gradient function here
-                                                                        borderRadius:
-                                                                            BorderRadius.circular(8)),
+                                                                decoration: BoxDecoration(
+                                                                    gradient: _getTemperatureGradient(
+                                                                        selectedDevice?[
+                                                                            "CurrentTemperature"]),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                            8)),
                                                                 child: Column(
                                                                   mainAxisAlignment:
                                                                       MainAxisAlignment
@@ -1235,7 +1726,7 @@ class _HomePageState extends State<HomePage> {
                                                                               width: 4),
                                                                           Text(
                                                                               "Temperature",
-                                                                              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                                                                              style: TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 11)),
                                                                         ]),
                                                                     const SizedBox(
                                                                         height:
@@ -1244,8 +1735,8 @@ class _HomePageState extends State<HomePage> {
                                                                         "${_formatValue(selectedDevice?["CurrentTemperature"])}°C",
                                                                         style: TextStyle(
                                                                             color: themeProvider.isDarkMode
-                                                                                ? Colors.white
-                                                                                : Colors.black,
+                                                                                ? Colors.white70
+                                                                                : Colors.black87,
                                                                             fontWeight: FontWeight.bold,
                                                                             fontSize: 13)),
                                                                   ],
@@ -1271,34 +1762,51 @@ class _HomePageState extends State<HomePage> {
                                                                       "SignalStrength",
                                                                       "BatteryVoltage",
                                                                       "RainfallDaily",
-                                                                      "RainfallWeekly"
+                                                                      "RainfallWeekly",
+                                                                      "LightIntensity"
                                                                     }.contains(
                                                                         e.key))
                                                                 .map((e) {
-                                                              // ADD: Check for WindSpeed key first (before LightIntensity)
-
+                                                              final double?
+                                                                  numericValue =
+                                                                  double.tryParse(e
+                                                                      .value
+                                                                      .toString());
+                                                              final String
+                                                                  formattedValue =
+                                                                  _formatValue(
+                                                                      e.value);
                                                               if (e.key ==
-                                                                  "LightIntensity") {
-                                                                // This call remains the same, but it will now use the new animation code
-                                                                return AnimatedLightCard(
-                                                                  luxValue:
-                                                                      _formatValue(
-                                                                          e.value),
-                                                                  name:
-                                                                      _getNameForKey(
-                                                                          e.key),
-                                                                  unit:
-                                                                      _getUnitForKey(
-                                                                          e.key),
-                                                                  color: themeProvider
-                                                                          .isDarkMode
-                                                                      ? Colors
-                                                                          .white70
-                                                                      : Colors
-                                                                          .black87,
+                                                                      "CurrentHumidity" &&
+                                                                  numericValue !=
+                                                                      null) {
+                                                                return AnimatedWaveHumidityCard(
+                                                                  humidity:
+                                                                      numericValue,
+                                                                  formattedValue:
+                                                                      formattedValue,
+                                                                );
+                                                              } else if (e.key ==
+                                                                      "WindSpeed" &&
+                                                                  numericValue !=
+                                                                      null) {
+                                                                return AnimatedWindCard(
+                                                                  windSpeed:
+                                                                      numericValue,
+                                                                  formattedValue:
+                                                                      formattedValue,
+                                                                );
+                                                              } else if (e.key ==
+                                                                      "RainfallHourly" &&
+                                                                  numericValue !=
+                                                                      null) {
+                                                                return AnimatedRainfallCard(
+                                                                  rainfall:
+                                                                      numericValue,
+                                                                  formattedValue:
+                                                                      formattedValue,
                                                                 );
                                                               } else {
-                                                                // --- Build the default widget for all other items ---
                                                                 return Container(
                                                                   padding:
                                                                       const EdgeInsets
@@ -1328,7 +1836,7 @@ class _HomePageState extends State<HomePage> {
                                                                                 size: 14),
                                                                             const SizedBox(width: 4),
                                                                             Text("${_getNameForKey(e.key)}",
-                                                                                style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                                                                                style: TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 11)),
                                                                           ]),
                                                                       const SizedBox(
                                                                           height:
@@ -1336,7 +1844,7 @@ class _HomePageState extends State<HomePage> {
                                                                       Text(
                                                                           "${_formatValue(e.value)} ${_getUnitForKey(e.key)}",
                                                                           style: TextStyle(
-                                                                              color: themeProvider.isDarkMode ? Colors.white : Colors.black,
+                                                                              color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87,
                                                                               fontWeight: FontWeight.bold,
                                                                               fontSize: 13),
                                                                           textAlign: TextAlign.center),
@@ -1345,6 +1853,24 @@ class _HomePageState extends State<HomePage> {
                                                                 );
                                                               }
                                                             }).toList(),
+                                                            if (!_isNullOrEmpty(
+                                                                selectedDevice?[
+                                                                    "LightIntensity"]))
+                                                              AnimatedLightCard(
+                                                                luxValue: _formatValue(
+                                                                    selectedDevice?[
+                                                                        "LightIntensity"]),
+                                                                name: _getNameForKey(
+                                                                    "LightIntensity"),
+                                                                unit: _getUnitForKey(
+                                                                    "LightIntensity"),
+                                                                color: themeProvider
+                                                                        .isDarkMode
+                                                                    ? Colors
+                                                                        .white70
+                                                                    : Colors
+                                                                        .black87,
+                                                              ),
                                                           ],
                                                         ),
                                                       const SizedBox(
@@ -1808,8 +2334,6 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  // Full-width products section (outside of padding)
-                  // ✅ Usage
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -1845,8 +2369,6 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ),
                           const SizedBox(height: 30),
-
-                          // ✅ Fixed Card Size Grid
                           GridView.builder(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
@@ -1856,8 +2378,7 @@ class _HomePageState extends State<HomePage> {
                                   getResponsiveCrossAxisCount(screenWidth),
                               crossAxisSpacing: 20,
                               mainAxisSpacing: 30,
-                              mainAxisExtent:
-                                  320, // ✅ Fix card ki height (har screen par same)
+                              mainAxisExtent: 320,
                             ),
                             itemCount: 6,
                             itemBuilder: (context, index) {
@@ -1938,20 +2459,16 @@ class _HomePageState extends State<HomePage> {
     required BuildContext context,
   }) {
     double screenWidth = MediaQuery.of(context).size.width;
-
-    // ⬆️ Slightly increased cardSize to allow padding
     double cardSize = screenWidth < 500
         ? 100
         : screenWidth < 850
             ? 150
             : 180;
-
     double valueFontSize = cardSize * 0.10;
     double labelFontSize = cardSize * 0.08;
 
     return Container(
       width: cardSize,
-      // height: cardSize,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
@@ -1976,7 +2493,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20.0), // 👈 Added padding inside the box
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -2039,12 +2556,9 @@ class _HomePageState extends State<HomePage> {
         screenWidth < 600 ? 12 : (screenWidth < 1300 ? 12 : 14);
     double buttonFontSize =
         screenWidth < 600 ? 8.0 : (screenWidth < 1300 ? 10.0 : 12.0);
-
     EdgeInsets cardPadding = EdgeInsets.all(screenWidth < 600 ? 12.0 : 0.0);
-
     double titleDescriptionSpacing =
         screenWidth < 600 ? 16 : (screenWidth < 1300 ? 7.0 : 5.0);
-
     bool isCardHovered = false;
 
     return StatefulBuilder(
@@ -2084,9 +2598,7 @@ class _HomePageState extends State<HomePage> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Image.asset(
                         imageAsset,
-                        width: screenWidth < 600
-                            ? 150
-                            : 200, // 📱 smaller on mobile
+                        width: screenWidth < 600 ? 150 : 200,
                         height: screenWidth < 600 ? 150 : 200,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) {
@@ -2097,8 +2609,6 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // ✅ Title
                     Text(
                       title.toUpperCase(),
                       textAlign: TextAlign.center,
@@ -2111,11 +2621,6 @@ class _HomePageState extends State<HomePage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: titleDescriptionSpacing),
-
-                    // const Spacer(),
-
-                    // ✅ Button
-                    // ✅ Button
                     ElevatedButton(
                       onPressed: onReadMore,
                       style: ElevatedButton.styleFrom(
