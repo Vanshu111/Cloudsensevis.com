@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:cloud_sense_webapp/LoginPage.dart';
 import 'package:cloud_sense_webapp/appbar.dart';
 import 'package:cloud_sense_webapp/buffalodata.dart';
@@ -259,16 +258,7 @@ class _DataDisplayPageState extends State<DataDisplayPage> {
                     const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // IconButton(
-                    //   icon: Icon(
-                    //     Icons.arrow_back,
-                    //     color: isDarkMode ? Colors.white : Colors.black,
-                    //     size: MediaQuery.of(context).size.width < 800 ? 20 : 28,
-                    //   ),
-                    //   onPressed: () => Navigator.pop(context),
-                    // ),
-                  ],
+                  children: [],
                 ),
               ),
               Expanded(

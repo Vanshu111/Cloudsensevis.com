@@ -35,7 +35,7 @@ class ThemeProvider extends ChangeNotifier {
 
   void _loadTheme() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isDarkMode = prefs.getBool('isDarkMode') ?? false;
+    _isDarkMode = prefs.getBool('isDarkMode') ?? true;
     notifyListeners();
   }
 }
@@ -102,12 +102,14 @@ class AnimatedLightCard extends StatefulWidget {
   final dynamic luxValue;
   final String name;
   final String unit;
+  final Color color;
 
   const AnimatedLightCard({
     Key? key,
     required this.luxValue,
     required this.name,
     required this.unit,
+    required this.color,
   }) : super(key: key);
 
   @override
@@ -197,33 +199,36 @@ class _AnimatedLightCardState extends State<AnimatedLightCard>
                       },
                       child: isDay
                           ? // --- Sun Icon for Day ---
-                          const Icon(
+                          Icon(
                               Icons.wb_sunny_rounded,
-                              key: ValueKey('sun'),
-                              color: Colors.white,
+                              key: const ValueKey('sun'),
+                              color: widget.color,
                               size: 18,
                             )
                           : // --- Moon Icon for Night ---
-                          const Icon(
+                          Icon(
                               Icons.nightlight_round,
-                              key: ValueKey('moon'),
-                              color: Colors.white,
+                              key: const ValueKey('moon'),
+                              color: widget.color,
                               size: 18,
                             ),
                     ),
                     const SizedBox(width: 4),
                     Text(
                       widget.name,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 13),
+                      style: TextStyle(
+                        color:
+                            widget.color.withOpacity(0.7), // Match other cards
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   "${widget.luxValue} ${widget.unit}",
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: widget.color,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -904,10 +909,12 @@ class _HomePageState extends State<HomePage> {
                                                             "deviceid#topic"]
                                                         .toString() ==
                                                     "1#WS/Campus/1"
-                                                ? const Text(
-                                                    "Check Nearest Device",
+                                                ? Text("Check Nearest Device",
                                                     style: TextStyle(
-                                                        color: Colors.black,
+                                                        color: themeProvider
+                                                                .isDarkMode
+                                                            ? Colors.white
+                                                            : Colors.black,
                                                         fontWeight:
                                                             FontWeight.bold,
                                                         fontSize: 10))
@@ -991,27 +998,40 @@ class _HomePageState extends State<HomePage> {
                                                             children: [
                                                               Text(
                                                                 "Latitude: ${_formatValue(selectedDevice?["Latitude"])} , Longitude: ${_formatValue(selectedDevice?["Longitude"])}",
-                                                                style: TextStyle(
-                                                                    fontSize:
-                                                                        screenWidth < 600
-                                                                            ? 12
-                                                                            : 16,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .bold,
-                                                                    color: Colors
-                                                                        .white),
+                                                                style:
+                                                                    TextStyle(
+                                                                  fontSize:
+                                                                      screenWidth <
+                                                                              600
+                                                                          ? 12
+                                                                          : 16,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .bold,
+                                                                  color: themeProvider
+                                                                          .isDarkMode
+                                                                      ? Colors
+                                                                          .white
+                                                                      : Colors
+                                                                          .black,
+                                                                ),
                                                               ),
                                                               const SizedBox(
                                                                   height: 2),
                                                               Text(currentDate,
-                                                                  style: TextStyle(
-                                                                      fontSize: screenWidth <
-                                                                              600
-                                                                          ? 10
-                                                                          : 12,
-                                                                      color: Colors
-                                                                          .white70)),
+                                                                  style:
+                                                                      TextStyle(
+                                                                    fontSize:
+                                                                        screenWidth <
+                                                                                600
+                                                                            ? 10
+                                                                            : 12,
+                                                                    color: themeProvider.isDarkMode
+                                                                        ? Colors
+                                                                            .white70
+                                                                        : Colors
+                                                                            .black87,
+                                                                  )),
                                                             ],
                                                           ),
                                                           if (!isSmallScreen)
@@ -1068,15 +1088,15 @@ class _HomePageState extends State<HomePage> {
                                                                           Row(
                                                                               mainAxisAlignment: MainAxisAlignment.center,
                                                                               children: [
-                                                                                const Icon(Icons.thermostat, color: Colors.white, size: 18),
+                                                                                Icon(Icons.thermostat, color: themeProvider.isDarkMode ? Colors.white : Colors.black, size: 18),
                                                                                 const SizedBox(width: 4),
-                                                                                Text("Temperature", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                                                                Text("Temperature", style: TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 13)),
                                                                               ]),
                                                                           const SizedBox(
                                                                               height: 4),
                                                                           Text(
                                                                               "${_formatValue(selectedDevice?["CurrentTemperature"])}°C",
-                                                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                                                                              style: TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold, fontSize: 16)),
                                                                         ],
                                                                       ),
                                                                     ),
@@ -1114,6 +1134,9 @@ class _HomePageState extends State<HomePage> {
                                                                             e.key),
                                                                         unit: _getUnitForKey(
                                                                             e.key),
+                                                                        color: themeProvider.isDarkMode
+                                                                            ? Colors.white70
+                                                                            : Colors.black87,
                                                                       );
                                                                     } else {
                                                                       // --- Build the default widget for all other items ---
@@ -1135,13 +1158,13 @@ class _HomePageState extends State<HomePage> {
                                                                               MainAxisAlignment.center,
                                                                           children: [
                                                                             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                                                              Icon(_getIconForKey(e.key), color: Colors.white, size: 18),
+                                                                              Icon(_getIconForKey(e.key), color: themeProvider.isDarkMode ? Colors.white : Colors.black, size: 18),
                                                                               const SizedBox(width: 4),
-                                                                              Text("${_getNameForKey(e.key)}", style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                                                                              Text("${_getNameForKey(e.key)}", style: TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontSize: 13)),
                                                                             ]),
                                                                             const SizedBox(height: 4),
                                                                             Text("${_formatValue(e.value)} ${_getUnitForKey(e.key)}",
-                                                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                                                                                style: TextStyle(color: themeProvider.isDarkMode ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold, fontSize: 16),
                                                                                 textAlign: TextAlign.center),
                                                                           ],
                                                                         ),
@@ -1204,9 +1227,9 @@ class _HomePageState extends State<HomePage> {
                                                                         mainAxisAlignment:
                                                                             MainAxisAlignment.center,
                                                                         children: [
-                                                                          const Icon(
+                                                                          Icon(
                                                                               Icons.thermostat,
-                                                                              color: Colors.white,
+                                                                              color: themeProvider.isDarkMode ? Colors.white : Colors.black,
                                                                               size: 14),
                                                                           const SizedBox(
                                                                               width: 4),
@@ -1219,9 +1242,10 @@ class _HomePageState extends State<HomePage> {
                                                                             4),
                                                                     Text(
                                                                         "${_formatValue(selectedDevice?["CurrentTemperature"])}°C",
-                                                                        style: const TextStyle(
-                                                                            color:
-                                                                                Colors.white,
+                                                                        style: TextStyle(
+                                                                            color: themeProvider.isDarkMode
+                                                                                ? Colors.white
+                                                                                : Colors.black,
                                                                             fontWeight: FontWeight.bold,
                                                                             fontSize: 13)),
                                                                   ],
@@ -1266,6 +1290,12 @@ class _HomePageState extends State<HomePage> {
                                                                   unit:
                                                                       _getUnitForKey(
                                                                           e.key),
+                                                                  color: themeProvider
+                                                                          .isDarkMode
+                                                                      ? Colors
+                                                                          .white70
+                                                                      : Colors
+                                                                          .black87,
                                                                 );
                                                               } else {
                                                                 // --- Build the default widget for all other items ---
@@ -1294,7 +1324,7 @@ class _HomePageState extends State<HomePage> {
                                                                               MainAxisAlignment.center,
                                                                           children: [
                                                                             Icon(_getIconForKey(e.key),
-                                                                                color: Colors.white,
+                                                                                color: themeProvider.isDarkMode ? Colors.white : Colors.black,
                                                                                 size: 14),
                                                                             const SizedBox(width: 4),
                                                                             Text("${_getNameForKey(e.key)}",
@@ -1305,8 +1335,8 @@ class _HomePageState extends State<HomePage> {
                                                                               4),
                                                                       Text(
                                                                           "${_formatValue(e.value)} ${_getUnitForKey(e.key)}",
-                                                                          style: const TextStyle(
-                                                                              color: Colors.white,
+                                                                          style: TextStyle(
+                                                                              color: themeProvider.isDarkMode ? Colors.white : Colors.black,
                                                                               fontWeight: FontWeight.bold,
                                                                               fontSize: 13),
                                                                           textAlign: TextAlign.center),
@@ -1337,17 +1367,16 @@ class _HomePageState extends State<HomePage> {
                                                           "Last Updated: ${_formatValue(selectedDevice?["TimeStamp_IST"])}",
                                                           textAlign:
                                                               TextAlign.center,
-                                                          style: const TextStyle(
-                                                              fontSize: 11,
-                                                              fontStyle:
-                                                                  FontStyle
-                                                                      .italic,
-                                                              color: Color
-                                                                  .fromARGB(
-                                                                      255,
-                                                                      245,
-                                                                      240,
-                                                                      240))),
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontStyle: FontStyle
+                                                                .italic,
+                                                            color: themeProvider
+                                                                    .isDarkMode
+                                                                ? Colors.white70
+                                                                : Colors
+                                                                    .black87,
+                                                          )),
                                                       if (errorMessage !=
                                                           null) ...[
                                                         const SizedBox(
