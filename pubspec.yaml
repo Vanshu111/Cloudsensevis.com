@@ -127,30 +127,29 @@ flutter:
   assets:
    
     
-    - assets/signin.png
-    - assets/signup3.png
-    - assets/Chloritronn.png
-    - assets/tree.jpg
-    - assets/water_quality.jpg
-    - assets/buffalo_.jpg
-    - assets/cow.jpg
-    - assets/applogo.jpg
-    - assets/dataloggerrender.png
-    - assets/ultrasonic.png
-    - assets/datalogger.png
-    - assets/PROBE_DATASHEET.pdf
-    - assets/Data_logger_datasheet.pdf
-    - assets/BLE_GATEWAY_Datasheet.pdf
-    - assets/RADIATION_SHIELD_DATASHEET.pdf
-    - assets/RAIN_GAUGE_DATASHEET.pdf
-    - assets/ULTRASONIC_DATASHEET.pdf
-    - assets/luxpressure.png
-    - assets/ULTRASONIC_DATASHEET.pdf
-    - assets/RAIN_GAUGE_DATASHEET.pdf
-    - assets/gauge.png
-    - assets/thprobe.png
-    - assets/blegateway.png
-
+    - assets/images/signin.png
+    - assets/images/signup3.png
+    - assets/images/Chloritronn.png
+    - assets/images/tree.jpg
+    - assets/images/water_quality.jpg
+    - assets/images/buffalo_.jpg
+    - assets/images/cow.jpg
+    - assets/icons/applogo.jpg
+    - assets/images/dataloggerrender.png
+    - assets/images/ultrasonic.png
+    - assets/images/datalogger.png
+    - assets/images/luxpressure.png
+    - assets/images/gauge.png
+    - assets/images/thprobe.png
+    - assets/images/blegateway.png
+    - assets/pdfs/PROBE_DATASHEET.pdf
+    - assets/pdfs/Data_logger_datasheet.pdf
+    - assets/pdfs/BLE_GATEWAY_Datasheet.pdf
+    - assets/pdfs/RADIATION_SHIELD_DATASHEET.pdf
+    - assets/pdfs/RAIN_GAUGE_DATASHEET.pdf
+    - assets/pdfs/ULTRASONIC_DATASHEET.pdf
+   
+   
 
 
    
