@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:amplify_flutter/amplify_flutter.dart';
-import 'package:animated_text_kit/animated_text_kit.dart';
 import 'package:cloud_sense_webapp/appbar.dart';
 import 'package:cloud_sense_webapp/devicelocationinfo.dart';
 import 'package:cloud_sense_webapp/drawer.dart';
@@ -11,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -293,16 +291,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  Color _aboutUsColor = const Color.fromARGB(255, 235, 232, 232);
-  Color _accountinfoColor = const Color.fromARGB(255, 235, 232, 232);
-  Color _devicemapinfoColor = const Color.fromARGB(255, 235, 232, 232);
   int _totalDevices = 0;
-  bool _isHovered = false;
   bool _isHoveredMyDevicesButton = false;
   bool _isPressedMyDevicesButton = false;
   bool _isHoveredbutton = false;
   bool _isPressed = false;
-  bool _isProductsExpanded = false; // For mobile drawer products expansion
+
   // Add a GlobalKey for the Scaffold
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   Map<String, dynamic>? nearestDevice;
@@ -435,207 +429,6 @@ class _HomePageState extends State<HomePage> {
           ],
         );
       },
-    );
-  }
-
-  void _showSensorPopup(BuildContext context, {GlobalKey? buttonKey}) async {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    RelativeRect position;
-
-    if (buttonKey != null) {
-      final RenderBox button =
-          buttonKey.currentContext!.findRenderObject() as RenderBox;
-      final buttonPosition =
-          button.localToGlobal(Offset.zero, ancestor: overlay);
-
-      position = RelativeRect.fromLTRB(
-        buttonPosition.dx,
-        buttonPosition.dy + button.size.height,
-        buttonPosition.dx + 200,
-        0,
-      );
-    } else {
-      position = RelativeRect.fromLTRB(
-        overlay.size.width - 200,
-        kToolbarHeight,
-        0,
-        0,
-      );
-    }
-
-    bool isAtrhExpanded = false;
-
-    final selected = await showMenu<String>(
-      context: context,
-      position: position,
-      color: isDarkMode ? Colors.grey[800] : Colors.white,
-      items: [
-        PopupMenuItem<String>(
-          value: 'atrh_sensor',
-          child: StatefulBuilder(
-            builder: (BuildContext context, StateSetter setState) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InkWell(
-                    onTap: () {
-                      setState(() {
-                        isAtrhExpanded = !isAtrhExpanded;
-                      });
-                    },
-                    child: Row(
-                      children: [
-                        Icon(Icons.thermostat,
-                            color: isDarkMode ? Colors.white : Colors.black),
-                        SizedBox(width: 8),
-                        Text('ATRH Sensor'),
-                        SizedBox(width: 8),
-                        Icon(
-                          isAtrhExpanded
-                              ? Icons.arrow_drop_up
-                              : Icons.arrow_drop_down,
-                          color: isDarkMode ? Colors.white : Colors.black,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (isAtrhExpanded) ...[
-                    Padding(
-                      padding: EdgeInsets.only(left: 16.0),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, '/probe');
-                        },
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Row(
-                            children: [
-                              Icon(Icons.thermostat,
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
-                              SizedBox(width: 8),
-                              Text('Temperature and Humidity\nProbe'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.only(left: 16.0),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.pushNamed(context, '/atrh');
-                        },
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Row(
-                            children: [
-                              Icon(Icons.thermostat,
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
-                              SizedBox(width: 8),
-                              Text(
-                                  'Temperature Humidity\nLight Intensity and\nPressure Sensor'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              );
-            },
-          ),
-        ),
-        PopupMenuItem(
-          value: 'wind_speed',
-          child: Row(
-            children: [
-              Icon(Icons.air, color: isDarkMode ? Colors.white : Colors.black),
-              SizedBox(width: 8),
-              Text('Ultrasonic Anemometer'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'rain_gauge',
-          child: Row(
-            children: [
-              Icon(Icons.water_drop,
-                  color: isDarkMode ? Colors.white : Colors.black),
-              SizedBox(width: 8),
-              Text('Rain Gauge'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'data_logger',
-          child: Row(
-            children: [
-              Icon(Icons.storage,
-                  color: isDarkMode ? Colors.white : Colors.black),
-              SizedBox(width: 8),
-              Text('Data Logger'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'gateway',
-          child: Row(
-            children: [
-              Icon(Icons.router,
-                  color: isDarkMode ? Colors.white : Colors.black),
-              SizedBox(width: 8),
-              Text('BLE Gateway'),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    if (selected != null && selected != 'atrh_sensor') {
-      switch (selected) {
-        case 'wind_speed':
-          Navigator.pushNamed(context, '/windsensor');
-          break;
-        case 'rain_gauge':
-          Navigator.pushNamed(context, '/raingauge');
-          break;
-        case 'data_logger':
-          Navigator.pushNamed(context, '/datalogger');
-          break;
-        case 'gateway':
-          Navigator.pushNamed(context, '/gateway');
-          break;
-      }
-    }
-  }
-
-  Widget _buildUserIcon() {
-    final isDotDarkMode = Theme.of(context).brightness == Brightness.dark;
-    final userProvider = Provider.of<UserProvider>(context);
-    final userEmail = userProvider.userEmail;
-
-    if (userEmail == null || userEmail.isEmpty) {
-      return Icon(
-        Icons.person,
-        color: isDotDarkMode ? Colors.white : Colors.black,
-      );
-    }
-    return CircleAvatar(
-      radius: 14,
-      backgroundColor: isDotDarkMode ? Colors.white : Colors.black,
-      child: Text(
-        userEmail[0].toUpperCase(),
-        style: TextStyle(
-          color: isDotDarkMode ? Colors.black : Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 14,
-        ),
-      ),
     );
   }
 
@@ -947,24 +740,12 @@ class _HomePageState extends State<HomePage> {
     double screenWidth = MediaQuery.of(context).size.width;
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final userProvider = Provider.of<UserProvider>(context);
+    Provider.of<UserProvider>(context);
     final currentDate = DateFormat("EEEE, dd MMMM yyyy").format(DateTime.now());
-    final currentTime = DateFormat("hh:mm a").format(DateTime.now());
+    DateFormat("hh:mm a").format(DateTime.now());
 
     // GlobalKeys for positioning dropdowns
-    final GlobalKey productsButtonKey = GlobalKey();
-    final GlobalKey userButtonKey = GlobalKey();
 
-    double titleFont = screenWidth < 800
-        ? 28
-        : screenWidth < 1024
-            ? 48
-            : 60;
-    double subtitleFont = screenWidth < 800
-        ? 18
-        : screenWidth < 1024
-            ? 22
-            : 30;
     double paragraphFont = screenWidth < 800
         ? 14
         : screenWidth < 1024
@@ -972,10 +753,6 @@ class _HomePageState extends State<HomePage> {
             : 18;
 
     return LayoutBuilder(builder: (context, constraints) {
-      bool isMobile = constraints.maxWidth < 800;
-      bool isTablet =
-          constraints.maxWidth >= 800 && constraints.maxWidth <= 1024;
-
       final isWideScreen = screenWidth > 1024; // Desktop
 
       return Scaffold(
@@ -2125,200 +1902,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  Widget _buildNavButton(
-    String text,
-    Color color,
-    VoidCallback onPressed, {
-    double fontSize = 14,
-  }) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
-
-    return Flexible(
-      child: MouseRegion(
-        onEnter: (_) => setState(() {
-          if (text == 'ABOUT US') _aboutUsColor = Colors.blue;
-          if (text == 'ACCOUNT INFO') _accountinfoColor = Colors.blue;
-          if (text == 'DEVICE STATUS') _devicemapinfoColor = Colors.blue;
-        }),
-        onExit: (_) => setState(() {
-          if (text == 'ABOUT US')
-            _aboutUsColor = const Color.fromARGB(255, 235, 232, 232);
-          if (text == 'ACCOUNT INFO')
-            _accountinfoColor = const Color.fromARGB(255, 235, 232, 232);
-          if (text == 'DEVICE STATUS')
-            _devicemapinfoColor = const Color.fromARGB(255, 235, 232, 232);
-        }),
-        child: TextButton(
-          onPressed: onPressed,
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              text,
-              style: TextStyle(
-                fontSize: fontSize,
-                color: isDarkMode ? Colors.white : Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUserDropdown(
-      bool isDarkMode, bool isTablet, GlobalKey userButtonKey) {
-    final userProvider = Provider.of<UserProvider>(context);
-    final isAdmin = userProvider.userEmail?.trim().toLowerCase() ==
-        '05agriculture.05@gmail.com';
-    final isSuperAdmin = [
-      'sejalsankhyan2001@gmail.com',
-      'pallavikrishnan01@gmail.com',
-      'officeharsh25@gmail.com'
-    ].contains(userProvider.userEmail?.trim().toLowerCase());
-
-    return GestureDetector(
-      onTap: () async {
-        final RenderBox overlay =
-            Overlay.of(context).context.findRenderObject() as RenderBox;
-        final RenderBox button =
-            userButtonKey.currentContext!.findRenderObject() as RenderBox;
-        final buttonPosition =
-            button.localToGlobal(Offset.zero, ancestor: overlay);
-
-        final selected = await showMenu<String>(
-          context: context,
-          position: RelativeRect.fromLTRB(
-            buttonPosition.dx,
-            buttonPosition.dy + button.size.height,
-            buttonPosition.dx + 200,
-            0,
-          ),
-          color: isDarkMode ? Colors.grey[800] : Colors.white,
-          items: userProvider.userEmail != null
-              ? isSuperAdmin
-                  ? [
-                      PopupMenuItem(
-                        value: 'data',
-                        child: Row(
-                          children: [
-                            Icon(Icons.data_usage,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
-                            SizedBox(width: 8),
-                            Text('My Data'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        value: 'logout',
-                        child: Row(
-                          children: [
-                            Icon(Icons.logout,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
-                            SizedBox(width: 8),
-                            Text('Logout'),
-                          ],
-                        ),
-                      ),
-                    ]
-                  : [
-                      PopupMenuItem(
-                        value: 'devices',
-                        child: Row(
-                          children: [
-                            Icon(Icons.devices,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
-                            SizedBox(width: 8),
-                            Text('My Devices'),
-                          ],
-                        ),
-                      ),
-                      if (!isAdmin)
-                        PopupMenuItem(
-                          value: 'account',
-                          child: Row(
-                            children: [
-                              Icon(Icons.account_circle,
-                                  color:
-                                      isDarkMode ? Colors.white : Colors.black),
-                              SizedBox(width: 8),
-                              Text('Account Info'),
-                            ],
-                          ),
-                        ),
-                      PopupMenuItem(
-                        value: 'logout',
-                        child: Row(
-                          children: [
-                            Icon(Icons.logout,
-                                color:
-                                    isDarkMode ? Colors.white : Colors.black),
-                            SizedBox(width: 8),
-                            Text('Logout'),
-                          ],
-                        ),
-                      ),
-                    ]
-              : [
-                  PopupMenuItem(
-                    value: 'login',
-                    child: Row(
-                      children: [
-                        Icon(Icons.login,
-                            color: isDarkMode ? Colors.white : Colors.black),
-                        SizedBox(width: 8),
-                        Text('Login/Signup'),
-                      ],
-                    ),
-                  ),
-                ],
-        );
-
-        if (selected == 'data' && isSuperAdmin) {
-          Navigator.pushNamed(context, '/admin');
-        } else if (selected == 'devices') {
-          if ([
-            'sejalsankhyan2001@gmail.com',
-            'pallavikrishnan01@gmail.com',
-            'officeharsh25@gmail.com'
-          ].contains(userProvider.userEmail?.trim().toLowerCase())) {
-            Navigator.pushNamed(context, '/admin');
-          } else if (userProvider.userEmail?.trim().toLowerCase() ==
-              '05agriculture.05@gmail.com') {
-            Navigator.pushNamed(context, '/deviceinfo');
-          } else {
-            Navigator.pushNamed(context, '/devicelist');
-          }
-        } else if (selected == 'account' && !isAdmin) {
-          Navigator.pushNamed(context, '/accountinfo');
-        } else if (selected == 'logout') {
-          _handleLogout();
-        } else if (selected == 'login') {
-          _showLoginPopup(context);
-        }
-      },
-      child: Row(
-        children: [
-          Text(
-            userProvider.userEmail ?? 'Guest',
-            style: TextStyle(
-              fontSize: isTablet ? 14 : 16,
-              color: isDarkMode ? Colors.white : Colors.black,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Icon(
-            Icons.arrow_drop_down,
-            color: isDarkMode ? Colors.white : Colors.black,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildAnimatedStatCard({
     required String statValue,
     required String label,
@@ -2425,8 +2008,6 @@ class _HomePageState extends State<HomePage> {
   }) {
     double titleFontSize =
         screenWidth < 600 ? 12 : (screenWidth < 1300 ? 12 : 14);
-    double descriptionFontSize =
-        screenWidth < 600 ? 10 : (screenWidth < 1300 ? 10 : 12);
     double buttonFontSize =
         screenWidth < 600 ? 8.0 : (screenWidth < 1300 ? 10.0 : 12.0);
 
