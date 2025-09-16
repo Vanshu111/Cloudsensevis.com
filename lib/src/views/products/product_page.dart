@@ -715,14 +715,14 @@ class ProductPage extends StatelessWidget {
         .shimmer(
           duration: 1500.ms,
           color: Colors.white.withOpacity(0.2),
-        )
-        .then()
-        .blurXY(
-          begin: 0,
-          end: 4,
-          duration: 1200.ms,
-          curve: Curves.easeInOut,
         );
+    // .then()
+    // .blurXY(
+    //   begin: 0,
+    //   end: 4,
+    //   duration: 1200.ms,
+    //   curve: Curves.easeInOut,
+    // );
   }
 
   Widget featureItem(String text, bool isDarkMode) {
