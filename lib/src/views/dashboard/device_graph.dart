@@ -563,7 +563,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
   List<ChartData> cod2Data = [];
   List<ChartData> bod2Data = [];
   List<ChartData> temp2Data = [];
-  String _currentStatus = 'Unknown';
   bool _isLoading = false;
   String? _errorMessage;
   late final String activityType;
@@ -594,7 +593,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   double _convertVoltageToPercentage(double voltage) {
     const double maxVoltage = 4.2; // 100%
-    const double minVoltage = 2.8; // 0%
+    const double minVoltage = 3.0; // 0%
 
     // Clamp the voltage to the valid range to avoid percentages outside 0-100
     if (voltage >= maxVoltage) return 100.0;
@@ -703,9 +702,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
     return incrementalData;
   }
 
-  double? _lastLatitude;
-  double? _lastLongitude;
-  DateTime? _lastLocationTime;
   final DateFormat formatter = DateFormat('dd-MM-yyyy HH:mm:ss');
   List<ChartData> wfAverageTemperatureData = [];
   List<ChartData> wfrainfallData = [];
@@ -722,24 +718,20 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
-  bool _hasShownAmmoniaNotification =
-      false; // To prevent repeated notifications
+
   double _ammoniaThreshold = 0.0; // Threshold for ammonia alerts
 
   bool isShiftPressed = false;
   late final FocusNode _focusNode;
 
   List<Map<String, dynamic>> rainHourlyItems = [];
-  List<List<dynamic>> _csvRainRows = [];
 
-  double _precipitationProbability = 0.0;
   List<double> _weeklyPrecipitationData = [];
-  int _selectedDeviceId = 0; // Variable to hold the selected device ID
+// Variable to hold the selected device ID
   bool _isHovering = false;
   String? _activeButton;
   String _currentChlorineValue = '0.00';
   String _currentrfdValue = '0.00';
-  String _currentAmmoniaValue = '0.00';
   List<DeviceStatus> _deviceStatuses = [];
 
   String _lastSelectedRange = 'single'; // Default to single
@@ -1265,8 +1257,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
 
   List<List<dynamic>> _csvRows = [];
   String _lastWindDirection = "";
-  String _lastwinddirection = "";
-  // String _lastfswinddirection = "";
   String _lastBatteryPercentage = "";
   double _lastfsBattery = 0.0;
   double _lastsmBattery = 0.0;
@@ -1402,7 +1392,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
         int.parse(widget.deviceName.replaceAll(RegExp(r'[^0-9]'), ''));
 
     setState(() {
-      _selectedDeviceId = deviceId; // Set the selected device ID
+// Set the selected device ID
     });
     // Call the additional rain data API for WD211
     if (widget.deviceName == 'WD211') {
@@ -1574,9 +1564,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     item['Latitude'] != 0 &&
                     item['Longitude'] != null &&
                     item['Longitude'] != 0) {
-                  _lastLatitude = item['Latitude'].toDouble();
-                  _lastLongitude = item['Longitude'].toDouble();
-                  _lastLocationTime = DateTime.parse(item['TimeStamp']);
                   break;
                 }
               }
@@ -1782,9 +1769,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     item['Latitude'] != 0 &&
                     item['Longitude'] != null &&
                     item['Longitude'] != 0) {
-                  _lastLatitude = item['Latitude'].toDouble();
-                  _lastLongitude = item['Longitude'].toDouble();
-                  _lastLocationTime = DateTime.parse(item['TimeStamp']);
                   break;
                 }
               }
@@ -1845,9 +1829,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     item['Latitude'] != 0 &&
                     item['Longitude'] != null &&
                     item['Longitude'] != 0) {
-                  _lastLatitude = item['Latitude'].toDouble();
-                  _lastLongitude = item['Longitude'].toDouble();
-                  _lastLocationTime = DateTime.parse(item['TimeStamp']);
                   break;
                 }
               }
@@ -1908,9 +1889,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     item['Latitude'] != 0 &&
                     item['Longitude'] != null &&
                     item['Longitude'] != 0) {
-                  _lastLatitude = item['Latitude'].toDouble();
-                  _lastLongitude = item['Longitude'].toDouble();
-                  _lastLocationTime = DateTime.parse(item['TimeStamp']);
                   break;
                 }
               }
@@ -1973,9 +1951,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                     item['Latitude'] != 0 &&
                     item['Longitude'] != null &&
                     item['Longitude'] != 0) {
-                  _lastLatitude = item['Latitude'].toDouble();
-                  _lastLongitude = item['Longitude'].toDouble();
-                  _lastLocationTime = DateTime.parse(item['TimeStamp']);
                   break; // Exit after finding the first valid location
                 }
               }
@@ -2148,12 +2123,7 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
                 data['items'] is List &&
                 data['items'].isNotEmpty) {
               var lastItem = data['items'].last;
-
-              _lastwinddirection =
-                  lastItem['wind_direction']?.toString() ?? '0';
-            } else {
-              _lastwinddirection = '0';
-            }
+            } else {}
             rows = [
               [
                 "Timestamp",
@@ -5046,32 +5016,6 @@ class _DeviceGraphPageState extends State<DeviceGraphPage>
       return dateFormat.parse(dateString);
     } catch (e) {
       return DateTime.now();
-    }
-  }
-
-  String _formatDate(DateTime date) {
-    return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
-  }
-
-  String _getDeviceStatus(String lastReceivedTime) {
-    if (lastReceivedTime == 'Unknown') return 'Unknown';
-    try {
-      // Adjust this format to match the actual format of lastReceivedTime
-      final dateFormat = DateFormat(
-          'yyyy-MM-dd hh:mm a'); // Change to 'HH:mm' for 24-hour format
-
-      final lastReceivedDate = dateFormat.parse(lastReceivedTime);
-      final currentTime = DateTime.now();
-      final difference = currentTime.difference(lastReceivedDate);
-
-      if (difference.inMinutes <= 62) {
-        return 'Active';
-      } else {
-        return 'Inactive';
-      }
-    } catch (e) {
-      print('Error parsing date: $e');
-      return 'Inactive'; // Fallback status in case of error
     }
   }
 

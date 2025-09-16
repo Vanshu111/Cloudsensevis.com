@@ -83,7 +83,6 @@ class _AnimatedWaveHumidityCardState extends State<AnimatedWaveHumidityCard> {
   @override
   Widget build(BuildContext context) {
     final waveColors = _getWaveColors(widget.humidity);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     final themeProvider = Provider.of<ThemeProvider>(context);
 
@@ -333,14 +332,6 @@ class _WindPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-class _WindGust {
-  final double y = Random().nextDouble();
-  final double offset = Random().nextDouble();
-  final double curvePoint = Random().nextDouble() * 50 + 20;
-  final double curveHeight = (Random().nextDouble() - 0.5) * 10;
-}
-
-// --- WIDGET FOR RAINFALL ANIMATION ---
 // --- WIDGET FOR RAINDROP ANIMATION ---
 
 class AnimatedRainfallCard extends StatefulWidget {
@@ -830,29 +821,6 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Future<void> _handleLogout() async {
-    try {
-      await Amplify.Auth.signOut();
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      if (fcmToken != null) {
-        await unsubscribeFromGpsSnsTopic(fcmToken);
-        await unsubscribeFromSnsTopic(fcmToken);
-      }
-      userProvider.setUser(null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logged out successfully')),
-      );
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-    } catch (e) {
-      print('Error during logout: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error logging out')),
-      );
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-    }
-  }
-
   Future<void> _handleDeviceNavigation() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final email = userProvider.userEmail;
@@ -1230,12 +1198,12 @@ class _HomePageState extends State<HomePage> {
                   end: Alignment.bottomCenter,
                   colors: themeProvider.isDarkMode
                       ? [
-                          const Color.fromARGB(255, 57, 57, 57)!,
-                          const Color.fromARGB(255, 2, 54, 76)!,
+                          const Color.fromARGB(255, 57, 57, 57),
+                          const Color.fromARGB(255, 2, 54, 76),
                         ]
                       : [
-                          const Color.fromARGB(255, 147, 214, 207)!,
-                          const Color.fromARGB(255, 79, 106, 112)!,
+                          const Color.fromARGB(255, 147, 214, 207),
+                          const Color.fromARGB(255, 79, 106, 112),
                         ],
                 ),
               ),
