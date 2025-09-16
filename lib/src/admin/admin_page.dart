@@ -1,11 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:cloud_sense_webapp/src/utils/DeleteDevice.dart';
 import 'package:cloud_sense_webapp/src/utils/Shared_Add_Device.dart';
+import 'package:cloud_sense_webapp/src/utils/device_activity.dart';
 import 'package:cloud_sense_webapp/src/views/dashboard/device_graph.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -23,16 +24,18 @@ double getResponsiveFontSize(
 }
 
 class _AdminPageState extends State<AdminPage> {
-  final String apiUrl =
-      "https://xa9ry8sls0.execute-api.us-east-1.amazonaws.com/CloudSense_device_activity_api_function";
+  final DeviceService _deviceService = DeviceService();
+  // API URLs still in use by this page
+
   final String userApiUrl =
-      "https://25e5bsdhwd.execute-api.us-east-1.amazonaws.com/default/CloudSense_users_delete_function";
+      "https://25e5bsdhwd.execute-api.us-east-1.amazonaws.com/default/CloudSense_users_delete_function"; // Used by fetchUsers
   final String flaggingApiUrl =
       "https://hmnrva928j.execute-api.us-east-1.amazonaws.com/default/WS_Flag_API";
   final String userDevicesApiUrl =
       "https://ln8b1r7ld9.execute-api.us-east-1.amazonaws.com/default/Cloudsense_user_devices";
-  final String addDeviceApiUrl =
-      "https://ymfmk699j5.execute-api.us-east-1.amazonaws.com/default/Cloudsense_user_add_devices";
+
+  // - REMOVED: `addDeviceApiUrl` is no longer needed here.
+  //   Its logic is now fully encapsulated within `DeviceUtils.addDeviceToUser`.
 
   bool isLoading = true;
   List<Map<String, dynamic>> allDevices = [];
@@ -48,21 +51,41 @@ class _AdminPageState extends State<AdminPage> {
   Timer? _anomalyTimer;
   FlutterLocalNotificationsPlugin? _notificationsPlugin;
 
-  int devicesToShow = 4; // start with 4 devices
-  int usersToShow = 4; // start with 4 users
+  int devicesToShow = 4;
+  int usersToShow = 4;
 
   @override
   void initState() {
     super.initState();
     _loadPrefs();
-    fetchDevices();
+    _loadDeviceData();
+
     fetchUsers();
     if (!kIsWeb) {
       _initializeNotifications();
     }
     fetchAnomalies();
     _anomalyTimer =
-        Timer.periodic(Duration(seconds: 30), (_) => fetchAnomalies());
+        Timer.periodic(const Duration(seconds: 30), (_) => fetchAnomalies());
+  }
+
+  // ✅ New method to load data using the service
+  Future<void> _loadDeviceData() async {
+    setState(() => isLoading = true);
+    final summary = await _deviceService.fetchDeviceActivity();
+
+    if (mounted) {
+      if (summary != null) {
+        setState(() {
+          allDevices = summary.allDevices;
+          totalActive = summary.totalActive;
+          totalInactive = summary.totalInactive;
+        });
+      } else {
+        _toast("Failed to fetch device data.");
+      }
+      setState(() => isLoading = false);
+    }
   }
 
   Future<void> _loadPrefs() async {
@@ -135,9 +158,6 @@ class _AdminPageState extends State<AdminPage> {
         failedDevices[deviceId] = failedDevices[deviceId] ?? 0;
 
         if (failedDevices[deviceId]! >= 5) {
-          if (kDebugMode) {
-            // print("Skipping device $deviceId due to repeated failures");
-          }
           return;
         }
 
@@ -155,7 +175,6 @@ class _AdminPageState extends State<AdminPage> {
             failedDevices[deviceId] = 0; // Reset failure count on success
             final data = json.decode(response.body);
             if (data is List && data.isNotEmpty) {
-              // Sort anomalies by timestamp in descending order
               final anomalies = data
                   .map((item) => item as Map<String, dynamic>)
                   .where((item) =>
@@ -166,30 +185,27 @@ class _AdminPageState extends State<AdminPage> {
                       parseDate(a['Timestamp']?.toString()) ?? DateTime(0);
                   final dtB =
                       parseDate(b['Timestamp']?.toString()) ?? DateTime(0);
-                  return dtB.compareTo(dtA); // Newest first
+                  return dtB.compareTo(dtA);
                 });
 
-              // Group anomalies by type and count occurrences
               final groupedAnomalies = <String, List<Map<String, String>>>{};
               for (var item in anomalies) {
                 final anomaly = item['Anomaly']?.toString() ?? "";
                 final timestamp = item['Timestamp']?.toString() ?? "";
                 if (anomaly.isNotEmpty && timestamp.isNotEmpty) {
-                  groupedAnomalies.putIfAbsent(anomaly, () => []).add({
-                    'timestamp': timestamp,
-                  });
+                  groupedAnomalies
+                      .putIfAbsent(anomaly, () => [])
+                      .add({'timestamp': timestamp});
                 }
               }
 
-              // Process each anomaly type
               for (var anomaly in groupedAnomalies.keys) {
                 final timestamps = groupedAnomalies[anomaly]!;
                 if (timestamps.length > 2) {
-                  // For anomalies occurring more than twice, create a single notification
                   timestamps.sort((a, b) {
                     final dtA = parseDate(a['timestamp']) ?? DateTime(0);
                     final dtB = parseDate(b['timestamp']) ?? DateTime(0);
-                    return dtA.compareTo(dtB); // Oldest first for start/end
+                    return dtA.compareTo(dtB);
                   });
                   final startTime = timestamps.first['timestamp']!;
                   final endTime = timestamps.last['timestamp']!;
@@ -199,7 +215,6 @@ class _AdminPageState extends State<AdminPage> {
                   final message =
                       _buildNotificationMessage(deviceIdTopic, anomaly, period);
 
-                  // Check if this anomaly period is already notified or dismissed
                   final isAlreadyNotified = notifications.any(
                     (n) =>
                         n['deviceIdTopic'] == deviceIdTopic &&
@@ -225,14 +240,12 @@ class _AdminPageState extends State<AdminPage> {
                     _showNotification(uniqueId, message);
                   }
 
-                  // Update latestAnomalies with the most recent anomaly
                   final latestTimestamp = timestamps.last['timestamp']!;
                   latestAnomalies[deviceIdTopic] = {
                     'anomaly': anomaly,
                     'timestamp': latestTimestamp,
                   };
                 } else if (timestamps.length <= 2) {
-                  // For anomalies occurring once or twice, notify each separately
                   for (var ts in timestamps) {
                     final timestamp = ts['timestamp']!;
                     final message = _buildNotificationMessage(
@@ -260,12 +273,12 @@ class _AdminPageState extends State<AdminPage> {
                       _showNotification(uniqueId, message);
                     }
 
-                    // Update latestAnomalies
                     final currentLatest = latestAnomalies[deviceIdTopic];
                     if (currentLatest == null ||
-                        parseDate(timestamp)!.isAfter(
-                            parseDate(currentLatest['timestamp']) ??
-                                DateTime(0))) {
+                        (parseDate(timestamp)?.isAfter(
+                                parseDate(currentLatest['timestamp']) ??
+                                    DateTime(0)) ??
+                            false)) {
                       latestAnomalies[deviceIdTopic] = {
                         'anomaly': anomaly,
                         'timestamp': timestamp,
@@ -276,17 +289,11 @@ class _AdminPageState extends State<AdminPage> {
               }
             }
           } else {
-            failedDevices[deviceId] = failedDevices[deviceId]! + 1;
-            if (kDebugMode) {
-              // print("Flagging API error for $deviceId: ${response.statusCode}");
-            }
+            failedDevices[deviceId] = (failedDevices[deviceId] ?? 0) + 1;
           }
         } catch (e) {
-          failedDevices[deviceId] = failedDevices[deviceId]! + 1;
-          if (kDebugMode) {
-            // print("Flagging API Exception for $deviceId: $e");
-          }
-          if (failedDevices[deviceId]! >= 5) {
+          failedDevices[deviceId] = (failedDevices[deviceId] ?? 0) + 1;
+          if ((failedDevices[deviceId] ?? 0) >= 5) {
             _toast(
                 "Persistent error fetching anomalies for device $deviceId. Skipping further attempts.");
           }
@@ -300,16 +307,12 @@ class _AdminPageState extends State<AdminPage> {
         notifications.sort((a, b) {
           final da = parseDate(a['timestamp']) ?? DateTime(0);
           final db = parseDate(b['timestamp']) ?? DateTime(0);
-          return db.compareTo(da); // Sort newest first
+          return db.compareTo(da);
         });
       });
       await _savePrefs();
     } else {
       setState(() {});
-    }
-    if (kDebugMode) {
-      // print("Notifications: $notifications");
-      // print("Failed devices: $failedDevices");
     }
   }
 
@@ -329,25 +332,24 @@ class _AdminPageState extends State<AdminPage> {
   Future<void> _showNotification(String uniqueId, String message) async {
     if (kIsWeb) {
       return;
-    } else {
-      const androidDetails = AndroidNotificationDetails(
-        'anomaly_channel',
-        'Anomaly Alerts',
-        channelDescription: 'Notifications for device anomalies',
-        importance: Importance.high,
-        priority: Priority.high,
-      );
-      const iosDetails = DarwinNotificationDetails();
-      const platformDetails =
-          NotificationDetails(android: androidDetails, iOS: iosDetails);
-      await _notificationsPlugin!.show(
-        uniqueId.hashCode,
-        'Device Anomaly',
-        message,
-        platformDetails,
-        payload: uniqueId,
-      );
     }
+    const androidDetails = AndroidNotificationDetails(
+      'anomaly_channel',
+      'Anomaly Alerts',
+      channelDescription: 'Notifications for device anomalies',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    const platformDetails =
+        NotificationDetails(android: androidDetails, iOS: iosDetails);
+    await _notificationsPlugin?.show(
+      uniqueId.hashCode,
+      'Device Anomaly',
+      message,
+      platformDetails,
+      payload: uniqueId,
+    );
   }
 
   void _handleNotificationTap(String payload) {
@@ -377,25 +379,19 @@ class _AdminPageState extends State<AdminPage> {
           (entry) =>
               entry.value['DeviceId'] == deviceId &&
               entry.value['Topic'] == topic,
-          orElse: () => MapEntry(-1, {}),
+          orElse: () => const MapEntry(-1, {}),
         );
     if (device.key != -1) {
+      final d = device.value;
       final mapped = _mapCategoryAndPrefix(topic);
       final sensorName = mapped.prefix.isNotEmpty
           ? "${mapped.prefix}${deviceId.padLeft(3, '0')}"
           : deviceId;
-      final sequentialName = "${mapped.category}";
+      final sequentialName = mapped.category;
       final anomalyMessage =
           notification['anomaly'] ?? "No anomaly data available";
       final period =
           notification['period'] ?? notification['timestamp'] ?? "N/A";
-
-      if (kDebugMode) {
-        // print("Handling notification tap for payload: $payload");
-        // print("Device: $d");
-        // print("Anomaly: $anomalyMessage");
-        // print("Period: $period");
-      }
 
       showDialog(
         context: context,
@@ -440,9 +436,6 @@ class _AdminPageState extends State<AdminPage> {
       );
     } else {
       _toast("Device not found for $deviceIdTopic");
-      if (kDebugMode) {
-        // print("Device not found for deviceIdTopic: $deviceIdTopic");
-      }
     }
   }
 
@@ -484,14 +477,12 @@ class _AdminPageState extends State<AdminPage> {
         builder: (dialogContext, dialogSetState) {
           final ScrollController scrollController = ScrollController();
 
-          // Group notifications by deviceIdTopic
           Map<String, List<Map<String, String>>> groupedNotifications = {};
           for (var n in notifications) {
             final key = n['deviceIdTopic']!;
             groupedNotifications.putIfAbsent(key, () => []).add(n);
           }
 
-          // Sort groups by the latest timestamp
           groupedNotifications.forEach((key, list) {
             list.sort((a, b) {
               final da = parseDate(a['timestamp']) ?? DateTime(0);
@@ -585,7 +576,6 @@ class _AdminPageState extends State<AdminPage> {
                                 final latest = deviceNotifs[0];
                                 final hasMore = deviceNotifs.length > 1;
 
-                                // Extract device ID and topic for display
                                 final deviceParts = key.split('#');
                                 final deviceId = deviceParts[0];
                                 final topic = deviceParts.length > 1
@@ -698,7 +688,9 @@ class _AdminPageState extends State<AdminPage> {
   void _showDeviceNotificationsDialog(BuildContext dialogContext,
       String deviceIdTopic, StateSetter dialogSetState) {
     final deviceId = deviceIdTopic.split('#')[0];
-    final topic = deviceIdTopic.split('#')[1];
+    final topic = deviceIdTopic.split('#').length > 1
+        ? deviceIdTopic.split('#')[1]
+        : "Unknown";
     final mapped = _mapCategoryAndPrefix(topic);
     final sensorName = mapped.prefix.isNotEmpty
         ? "${mapped.prefix}${deviceId.padLeft(3, '0')}"
@@ -720,7 +712,7 @@ class _AdminPageState extends State<AdminPage> {
           if (deviceNotifs.isEmpty) {
             WidgetsBinding.instance
                 .addPostFrameCallback((_) => Navigator.pop(subContext));
-            return const SizedBox();
+            return const SizedBox.shrink();
           }
 
           final theme = Theme.of(subContext);
@@ -739,21 +731,21 @@ class _AdminPageState extends State<AdminPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "Notifications for $sensorName (${deviceNotifs.length})",
-                        style: TextStyle(
-                          color: strong,
-                          fontSize:
-                              MediaQuery.of(context).size.width < 600 ? 14 : 16,
-                          fontWeight: FontWeight.w800,
+                      Expanded(
+                        child: Text(
+                          "Notifications for $sensorName (${deviceNotifs.length})",
+                          style: TextStyle(
+                            color: strong,
+                            fontSize: getResponsiveFontSize(context, 14, 16),
+                            fontWeight: FontWeight.w800,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       IconButton(
                         icon: Icon(Icons.close,
                             color: subtle,
-                            size: MediaQuery.of(context).size.width < 600
-                                ? 16
-                                : 24),
+                            size: getResponsiveFontSize(context, 16, 24)),
                         onPressed: () => Navigator.pop(subContext),
                         tooltip: 'Close',
                       ),
@@ -773,9 +765,7 @@ class _AdminPageState extends State<AdminPage> {
                             children: [
                               Icon(Icons.warning,
                                   color: Colors.orange,
-                                  size: MediaQuery.of(context).size.width < 600
-                                      ? 16
-                                      : 24),
+                                  size: getResponsiveFontSize(context, 16, 24)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -783,9 +773,7 @@ class _AdminPageState extends State<AdminPage> {
                                   style: TextStyle(
                                     color: strong,
                                     fontSize:
-                                        MediaQuery.of(context).size.width < 600
-                                            ? 8
-                                            : 12,
+                                        getResponsiveFontSize(context, 8, 12),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -794,9 +782,7 @@ class _AdminPageState extends State<AdminPage> {
                                 icon: Icon(Icons.delete,
                                     color: Colors.red,
                                     size:
-                                        MediaQuery.of(context).size.width < 600
-                                            ? 16
-                                            : 24),
+                                        getResponsiveFontSize(context, 16, 24)),
                                 onPressed: () {
                                   _dismissNotification(deviceIdTopic,
                                       n['timestamp']!, n['anomaly']!);
@@ -826,167 +812,58 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  Future<void> fetchDevices() async {
-    setState(() => isLoading = true);
-    try {
-      final response = await http.get(Uri.parse(
-          "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity"));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final List<dynamic>? devicesList = data['devices'];
-        if (devicesList == null || devicesList.isEmpty) {
-          setState(() {
-            allDevices = [];
-            totalActive = 0;
-            totalInactive = 0;
-            isLoading = false;
-          });
-          _toast("No device data received");
-          return;
-        }
-
-        final List<Map<String, dynamic>> devices = [];
-        for (final device in devicesList) {
-          final deviceIdTopic = device['deviceid#topic']?.toString() ?? "";
-          if (deviceIdTopic.isEmpty) continue;
-
-          // Split deviceid#topic into DeviceId and Topic
-          final parts = deviceIdTopic.split('#');
-          if (parts.length < 2) continue;
-          final deviceId = parts[0];
-          final topic = parts.sublist(1).join('#');
-
-          // Skip devices with topics starting with 'BF/' or 'CS/'
-          if (topic.startsWith('BF/') || topic.startsWith('CS/')) {
-            continue;
-          }
-
-          final DateTime? lastTime = parseDate(device['TimeStamp_IST']);
-          if (kDebugMode && lastTime == null) {
-            // print("Failed to parse TimeStamp_IST: ${device['TimeStamp_IST']} for device $deviceIdTopic");
-          }
-          bool isActive = false;
-          if (lastTime != null) {
-            final diff = DateTime.now().difference(lastTime);
-            isActive = diff.inHours <= 24;
-            if (kDebugMode) {
-              // print("Device $deviceIdTopic: TimeStamp_IST=${device['TimeStamp_IST']}, Parsed=$lastTime, Diff=${diff.inHours} hours, isActive=$isActive");
-            }
-          }
-
-          devices.add({
-            "DeviceId": deviceId,
-            "lastReceivedTime": lastTime?.toString() ?? "N/A",
-            "isActive": isActive,
-            "group": topic.split('/')[0],
-            "Topic": topic,
-            "LastKnownLongitude":
-                device['LastKnownLongitude']?.toString() ?? "0",
-            "LastKnownLatitude": device['LastKnownLatitude']?.toString() ?? "0",
-          });
-        }
-
-        final int activeCount =
-            devices.where((d) => d['isActive'] == true).length;
-        final int inactiveCount = devices.length - activeCount;
-
-        setState(() {
-          allDevices = devices;
-          totalActive = activeCount;
-          totalInactive = inactiveCount;
-          isLoading = false;
-        });
-
-        if (kDebugMode) {
-          // print("Fetched devices: $devices");
-        }
-      } else {
-        setState(() => isLoading = false);
-        _toast("Device API error: ${response.statusCode}");
-      }
-    } catch (e) {
-      setState(() => isLoading = false);
-      _toast("Device fetch failed");
-      if (kDebugMode) debugPrint("fetchDevices error: $e");
-    }
-  }
-
   Future<void> fetchUsers() async {
+    if (!mounted) return;
     setState(() => isUsersLoading = true);
     for (int attempt = 1; attempt <= 3; attempt++) {
       try {
         final response = await http
             .get(Uri.parse("$userApiUrl?action=list"))
-            .timeout(Duration(seconds: 10));
-        if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          List<Map<String, String>> userList = [];
+            .timeout(const Duration(seconds: 10));
+        if (mounted) {
+          if (response.statusCode == 200) {
+            final data = json.decode(response.body);
+            List<Map<String, String>> userList = [];
 
-          if (data is Map &&
-              data.containsKey('users') &&
-              data['users'] is List) {
-            userList =
-                (data['users'] as List).map<Map<String, String>>((email) {
-              return {
-                "email": email.toString(),
-                "role": "User",
-              };
-            }).toList();
-          }
+            if (data is Map &&
+                data.containsKey('users') &&
+                data['users'] is List) {
+              userList =
+                  (data['users'] as List).map<Map<String, String>>((email) {
+                return {"email": email.toString(), "role": "User"};
+              }).toList();
+            }
 
-          setState(() {
-            users = userList;
-            isUsersLoading = false;
-          });
+            setState(() {
+              users = userList;
+              isUsersLoading = false;
+            });
 
-          if (users.isEmpty) {
-            _toast("No valid user data received");
-          }
-          return;
-        } else {
-          if (attempt == 3) {
-            setState(() => isUsersLoading = false);
-            _toast("User API error: ${response.statusCode}");
+            if (users.isEmpty) {
+              _toast("No valid user data received");
+            }
             return;
+          } else {
+            if (attempt == 3) {
+              setState(() => isUsersLoading = false);
+              _toast("User API error: ${response.statusCode}");
+              return;
+            }
           }
         }
       } catch (e) {
-        if (attempt == 3) {
+        if (attempt == 3 && mounted) {
           setState(() => isUsersLoading = false);
           _toast("User fetch failed: $e");
         }
       }
-      await Future.delayed(Duration(seconds: 2));
+      await Future.delayed(const Duration(seconds: 2));
     }
   }
 
   Future<void> _showUserDevices(String email) async {
     Map<String, List<String>> deviceCategories = {};
     bool isLoadingDevices = true;
-
-    try {
-      final response =
-          await http.get(Uri.parse("$userDevicesApiUrl?email_id=$email"));
-      if (response.statusCode == 200) {
-        final result = json.decode(response.body);
-        deviceCategories = {
-          for (var key in result.keys)
-            if (key != 'device_id' && key != 'email_id')
-              key: List<String>.from(result[key] ?? [])
-        };
-      } else {
-        _toast("Failed to load devices: Status ${response.statusCode}");
-      }
-    } catch (e) {
-      _toast("Error fetching devices: $e");
-    } finally {
-      isLoadingDevices = false;
-    }
-
-    if (!mounted) return;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final subtle = isDark ? Colors.white70 : Colors.black54;
-    final strong = isDark ? Colors.white : Colors.black;
 
     showDialog(
       context: context,
@@ -997,23 +874,36 @@ class _AdminPageState extends State<AdminPage> {
             try {
               final response = await http
                   .get(Uri.parse("$userDevicesApiUrl?email_id=$email"));
-              if (response.statusCode == 200) {
-                final result = json.decode(response.body);
-                dialogSetState(() {
-                  deviceCategories = {
-                    for (var key in result.keys)
-                      if (key != 'device_id' && key != 'email_id')
-                        key: List<String>.from(result[key] ?? [])
-                  };
-                });
-              } else {
-                _toast("Failed to load devices: Status ${response.statusCode}");
+              if (dialogContext.mounted) {
+                if (response.statusCode == 200) {
+                  final result = json.decode(response.body);
+                  dialogSetState(() {
+                    deviceCategories = {
+                      for (var key in result.keys)
+                        if (key != 'device_id' && key != 'email_id')
+                          key: List<String>.from(result[key] ?? [])
+                    };
+                  });
+                } else {
+                  _toast(
+                      "Failed to load devices: Status ${response.statusCode}");
+                }
               }
             } catch (e) {
               _toast("Error fetching devices: $e");
             }
-            dialogSetState(() => isLoadingDevices = false);
+            if (dialogContext.mounted) {
+              dialogSetState(() => isLoadingDevices = false);
+            }
           }
+
+          if (isLoadingDevices) {
+            _refreshDevices();
+          }
+
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          final subtle = isDark ? Colors.white70 : Colors.black54;
+          final strong = isDark ? Colors.white : Colors.black;
 
           return Dialog(
             shape:
@@ -1026,15 +916,35 @@ class _AdminPageState extends State<AdminPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "Devices for $email",
-                        style: TextStyle(
-                            color: strong,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800),
+                      Expanded(
+                        child: Text(
+                          "Devices for $email",
+                          style: TextStyle(
+                              color: strong,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       Row(
                         children: [
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline,
+                                color: Colors.red),
+                            onPressed: () async {
+                              await DeleteDeviceUtils.deleteDevices(
+                                dialogContext,
+                                email,
+                                deviceCategories,
+                                (updatedCategories) {
+                                  dialogSetState(() {
+                                    deviceCategories = updatedCategories;
+                                  });
+                                },
+                              );
+                            },
+                            tooltip: 'Delete Devices',
+                          ),
                           IconButton(
                             icon: Icon(Icons.refresh, color: subtle),
                             onPressed: _refreshDevices,
@@ -1079,56 +989,6 @@ class _AdminPageState extends State<AdminPage> {
                                           style: TextStyle(
                                               color: strong, fontSize: 14),
                                         ),
-                                        trailing: IconButton(
-                                          icon: Icon(Icons.delete,
-                                              color: Colors.red),
-                                          onPressed: () async {
-                                            final confirm =
-                                                await showDialog<bool>(
-                                              context: dialogContext,
-                                              builder: (confirmCtx) =>
-                                                  AlertDialog(
-                                                title: const Text(
-                                                    "Confirm Deletion"),
-                                                content: Text(
-                                                    "Are you sure you want to delete device $device from $email?"),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            confirmCtx, false),
-                                                    child: const Text("Cancel"),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(
-                                                            confirmCtx, true),
-                                                    child: const Text("Delete",
-                                                        style: TextStyle(
-                                                            color: Colors.red)),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                            if (confirm == true) {
-                                              await _deleteUserDevice(
-                                                  email,
-                                                  device,
-                                                  dialogContext,
-                                                  dialogSetState);
-                                              // Check if there are any devices left
-                                              if (deviceCategories.values.every(
-                                                  (devices) =>
-                                                      devices.isEmpty)) {
-                                                Navigator.pop(
-                                                    dialogContext); // Close dialog if no devices remain
-                                              } else {
-                                                await _refreshDevices();
-                                              }
-                                            }
-                                          },
-                                          tooltip: 'Delete',
-                                        ),
                                       );
                                     }).toList(),
                                   );
@@ -1144,132 +1004,18 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 
-  Future<void> _deleteUserDevice(String email, String deviceId,
-      BuildContext dialogContext, StateSetter dialogSetState) async {
-    final url =
-        "$userApiUrl?email_id=$email&action=delete_devices&device_id=$deviceId";
-    try {
-      final response = await http.delete(Uri.parse(url));
-      if (response.statusCode == 200) {
-        try {
-          final body = json.decode(response.body);
-          if (body['message']?.toString().toLowerCase().contains('deleted') ==
-              true) {
-            _toast("Device $deviceId deleted from $email");
-            // Remove any related notifications and anomalies
-            final deviceIdTopic = allDevices
-                .firstWhere((d) => d['DeviceId'] == deviceId,
-                    orElse: () => {'Topic': ''})['Topic']
-                .toString();
-            final fullDeviceIdTopic = "$deviceId#$deviceIdTopic";
-            dialogSetState(() {
-              notifications
-                  .removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
-              latestAnomalies.remove(fullDeviceIdTopic);
-              dismissedNotifications
-                  .removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
-            });
-            if (!kIsWeb) {
-              for (var n in notifications
-                  .where((n) => n['deviceIdTopic'] == fullDeviceIdTopic)) {
-                final uniqueId =
-                    "$fullDeviceIdTopic#${n['anomaly']}#${n['timestamp']}";
-                _notificationsPlugin?.cancel(uniqueId.hashCode);
-              }
-            }
-            await _savePrefs();
-          } else {
-            _toast(
-                "Failed to delete device: ${body['message'] ?? 'Unknown error'}");
-          }
-        } on FormatException {
-          if (response.body.toLowerCase().contains('deleted')) {
-            _toast("Device $deviceId deleted from $email");
-            final deviceIdTopic = allDevices
-                .firstWhere((d) => d['DeviceId'] == deviceId,
-                    orElse: () => {'Topic': ''})['Topic']
-                .toString();
-            final fullDeviceIdTopic = "$deviceId#$deviceIdTopic";
-            dialogSetState(() {
-              notifications
-                  .removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
-              latestAnomalies.remove(fullDeviceIdTopic);
-              dismissedNotifications
-                  .removeWhere((n) => n['deviceIdTopic'] == fullDeviceIdTopic);
-            });
-            if (!kIsWeb) {
-              for (var n in notifications
-                  .where((n) => n['deviceIdTopic'] == fullDeviceIdTopic)) {
-                final uniqueId =
-                    "$fullDeviceIdTopic#${n['anomaly']}#${n['timestamp']}";
-                _notificationsPlugin?.cancel(uniqueId.hashCode);
-              }
-            }
-            await _savePrefs();
-          } else {
-            _toast("Failed to delete device: ${response.body}");
-          }
-        }
-      } else {
-        _toast(
-            "Delete API error: Status ${response.statusCode}, Body: ${response.body}");
-      }
-    } catch (e) {
-      _toast("Error deleting device: $e");
-      if (kDebugMode) print("Delete device error: $e");
-    }
-  }
-
+  // ✅ METHOD AFTER CHANGES: It now calls the shared utility function.
   Future<void> _addDeviceToUser(String email, String deviceId) async {
-    try {
-      if (!DeviceUtils.isValidDeviceId(deviceId)) {
-        _toast("Invalid Device ID.");
-        return;
-      }
-
-      final deviceExists = allDevices.any((d) => d['DeviceId'] == deviceId);
-      if (deviceExists) {
-        _toast("Device $deviceId is already added.");
-        return;
-      }
-
-      final response = await http.get(
-          Uri.parse("$addDeviceApiUrl?email_id=$email&device_id=$deviceId"));
-      if (kDebugMode) {
-        print(
-            "Add Device Response: Status=${response.statusCode}, Body=${response.body}");
-      }
-
-      if (response.statusCode == 200) {
-        try {
-          final responseBody = json.decode(response.body);
-          if (responseBody['message']
-                  ?.toString()
-                  .toLowerCase()
-                  .contains('success') ==
-              true) {
-            _toast("Device $deviceId added to $email successfully");
-          } else {
-            _toast(
-                "Failed to add device: ${responseBody['message'] ?? 'Unknown error'}");
-          }
-        } on FormatException {
-          if (response.body.toLowerCase().contains('success')) {
-            _toast("Device $deviceId added to $email successfully");
-          } else {
-            _toast("Failed to add device: ${response.body}");
-          }
-        }
-      } else {
-        _toast(
-            "Add device API error: Status ${response.statusCode}, ${response.body}");
-      }
-    } catch (e) {
-      _toast("Error adding device: $e");
-      if (kDebugMode) {
-        print("Exception during device addition: $e");
-      }
-    }
+    // Delegate all logic to the centralized function in DeviceUtils
+    await DeviceUtils.addDeviceToUser(
+      context: context,
+      email: email,
+      deviceId: deviceId,
+      allDevices: allDevices, // Pass the list of all devices for the check
+    );
+    // Optionally, you can refresh data if the addition was successful
+    await _loadDeviceData();
+    ;
   }
 
   void _showAddDeviceDialog(String email) {
@@ -1286,11 +1032,10 @@ class _AdminPageState extends State<AdminPage> {
               children: [
                 TextField(
                   controller: deviceIdController,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Enter Device ID (e.g., CP001)",
                     border: OutlineInputBorder(),
-                    helperText:
-                        "Use 2 uppercase letters (e.g., CP) + 3 digits (e.g., 001)",
+                    helperText: "Use 2 uppercase letters + 3 digits",
                   ),
                   onChanged: (value) {
                     setState(() {});
@@ -1307,11 +1052,8 @@ class _AdminPageState extends State<AdminPage> {
                 onPressed: deviceIdController.text.trim().isEmpty
                     ? null
                     : () {
-                        final deviceId = deviceIdController.text.trim();
-                        if (!DeviceUtils.isValidDeviceId(deviceId)) {
-                          _toast("Invalid Device ID.");
-                          return;
-                        }
+                        final deviceId =
+                            deviceIdController.text.trim().toUpperCase();
                         Navigator.pop(context);
                         _addDeviceToUser(email, deviceId);
                       },
@@ -1327,10 +1069,8 @@ class _AdminPageState extends State<AdminPage> {
   DateTime? parseDate(String? dateStr) {
     if (dateStr == null || dateStr == "N/A" || dateStr.isEmpty) return null;
     try {
-      // Remove any extra spaces
       dateStr = dateStr.trim().replaceAll(RegExp(r'\s+'), ' ');
 
-      // Handle compact format: yyyyMMddTHHmmss
       final compactRegex = RegExp(r'^\d{8}T\d{6}$');
       if (compactRegex.hasMatch(dateStr)) {
         final y = int.parse(dateStr.substring(0, 4));
@@ -1342,13 +1082,11 @@ class _AdminPageState extends State<AdminPage> {
         return DateTime(y, m, d, H, M, S);
       }
 
-      // Try parsing yyyy-MM-dd HH:mm:ss
       final standardRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$');
       if (standardRegex.hasMatch(dateStr)) {
         return DateTime.parse(dateStr);
       }
 
-      // Try parsing dd-MM-yyyy HH:mm:ss
       final customRegex = RegExp(r'^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$');
       if (customRegex.hasMatch(dateStr)) {
         final parts = dateStr.split(' ');
@@ -1362,8 +1100,6 @@ class _AdminPageState extends State<AdminPage> {
         final S = int.parse(timeParts[2]);
         return DateTime(y, m, d, H, M, S);
       }
-
-      // Fallback to DateTime.tryParse for other formats
       return DateTime.tryParse(dateStr);
     } catch (e) {
       if (kDebugMode) {
@@ -1392,7 +1128,7 @@ class _AdminPageState extends State<AdminPage> {
         if (a['isActive'] == b['isActive']) {
           return a['DeviceId'].toString().compareTo(b['DeviceId'].toString());
         }
-        return a['isActive'] ? -1 : 1;
+        return (a['isActive'] as bool) ? -1 : 1;
       });
     return sorted;
   }
@@ -1437,134 +1173,16 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   Future<void> _deleteUser(String email) async {
-    final url = "$userApiUrl?email_id=$email&action=delete_user";
-    try {
-      final response = await http.delete(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final responseBody = json.decode(response.body);
-        if (responseBody is Map &&
-            responseBody['message']
-                    ?.toString()
-                    .toLowerCase()
-                    .contains('confirm_delete=yes') ==
-                true) {
-          if (!mounted) return;
-          showDialog(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text("Confirm Deletion"),
-              content: Text("Are you sure you want to delete the user $email?"),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    Navigator.pop(context);
-                    final confirmUrl =
-                        "$userApiUrl?email_id=$email&action=delete_user&confirm_delete=yes";
-                    try {
-                      final confirmResponse =
-                          await http.delete(Uri.parse(confirmUrl));
-                      if (confirmResponse.statusCode == 200) {
-                        final confirmResponseBody =
-                            json.decode(confirmResponse.body);
-                        if (confirmResponseBody is Map &&
-                            confirmResponseBody['message']
-                                    ?.toString()
-                                    .toLowerCase()
-                                    .contains('deleted') ==
-                                true) {
-                          _toast("User $email deleted successfully");
-                          await fetchUsers();
-                        } else {
-                          _toast(
-                              "Failed to delete user $email: ${confirmResponseBody['message'] ?? 'Unknown error'}");
-                        }
-                      } else if (confirmResponse.statusCode == 404) {
-                        _toast("User $email not found, treated as deleted");
-                        await fetchUsers();
-                      } else {
-                        _toast(
-                            "Failed to delete user $email: Status ${confirmResponse.statusCode}");
-                      }
-                    } catch (e) {
-                      _toast("Error deleting user $email: $e");
-                      if (kDebugMode) debugPrint("confirmDeleteUser error: $e");
-                    }
-                  },
-                  child:
-                      const Text("Delete", style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          );
-        } else if (responseBody is Map &&
-            responseBody['message']
-                    ?.toString()
-                    .toLowerCase()
-                    .contains('deleted') ==
-                true) {
-          _toast("User $email deleted successfully");
-          await fetchUsers();
-        } else {
-          _toast(
-              "Failed to delete user $email: ${responseBody['message'] ?? 'Unknown error'}");
-        }
-      } else if (response.statusCode == 404) {
-        _toast("User $email not found, treated as deleted");
-        await fetchUsers();
-      } else {
-        _toast("Failed to delete user $email: Status ${response.statusCode}");
-      }
-    } catch (e) {
-      _toast("Error deleting user $email: $e");
-      if (kDebugMode) debugPrint("deleteUser error: $e");
-    }
-  }
-
-  List<PieChartSectionData> _pieSections() {
-    final double active = (totalActive > 0) ? totalActive.toDouble() : 0;
-    final double inactive = (totalInactive > 0) ? totalInactive.toDouble() : 0;
-    final total = active + inactive;
-    if (total == 0) {
-      return [
-        PieChartSectionData(
-          color: Colors.grey.shade400,
-          value: 1,
-          title: 'No Data',
-          radius: 46,
-          titleStyle: TextStyle(fontSize: 12, color: Colors.white),
-        )
-      ];
-    }
-    return [
-      PieChartSectionData(
-        color: Colors.green,
-        value: active,
-        title: '${((active / total) * 100).toStringAsFixed(0)}%',
-        radius: 48,
-        titleStyle: const TextStyle(
-            fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-      ),
-      PieChartSectionData(
-        color: Colors.red,
-        value: inactive,
-        title: '${((inactive / total) * 100).toStringAsFixed(0)}%',
-        radius: 48,
-        titleStyle: const TextStyle(
-            fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-      ),
-    ];
+    await DeleteDeviceUtils.deleteAccount(context, email, null);
+    await fetchUsers();
   }
 
   @override
   Widget build(BuildContext context) {
+    // ... Widget build method remains the same ...
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // 🔹 Use gradient colors instead of a flat bg color
     final bg = isDark
         ? [
             const Color.fromARGB(255, 4, 36, 49),
@@ -1582,10 +1200,9 @@ class _AdminPageState extends State<AdminPage> {
     return Scaffold(
       backgroundColor: bg.first,
       appBar: AppBar(
-        elevation: 0, // remove shadow
-        scrolledUnderElevation:
-            0, // NEW: disables the lighter overlay effect when scrolled
-        surfaceTintColor: Colors.transparent, // prevents automatic tint
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         backgroundColor: bg.first,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: strong),
@@ -1597,12 +1214,9 @@ class _AdminPageState extends State<AdminPage> {
             color: strong,
             fontWeight: FontWeight.w700,
             letterSpacing: 0.2,
-            fontSize: MediaQuery.of(context).size.width < 600
-                ? 18
-                : 26, // 👈 smaller on mobile
+            fontSize: getResponsiveFontSize(context, 18, 26),
           ),
         ),
-
         actions: [
           if (kIsWeb)
             Stack(
@@ -1618,7 +1232,7 @@ class _AdminPageState extends State<AdminPage> {
                     top: 8,
                     child: Container(
                       padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: Colors.red,
                         shape: BoxShape.circle,
                       ),
@@ -1639,7 +1253,7 @@ class _AdminPageState extends State<AdminPage> {
           IconButton(
             tooltip: 'Refresh devices',
             onPressed: () {
-              fetchDevices();
+              _loadDeviceData();
               fetchAnomalies();
             },
             icon: Icon(Icons.refresh, color: strong),
@@ -1648,35 +1262,15 @@ class _AdminPageState extends State<AdminPage> {
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          // Define screen size categories
           final isMobile = constraints.maxWidth <= 600;
-          final isTablet =
-              constraints.maxWidth > 600 && constraints.maxWidth <= 1024;
-          final isLargeScreen = constraints.maxWidth > 1024;
+          final statCrossAxisCount = isMobile ? 1 : 4;
+          final statChildAspectRatio = isMobile ? 4.0 : 2.9;
+          final padding = isMobile ? 12.0 : 18.0;
 
-          // Set layout properties based on screen size
-          final int statCrossAxisCount = isMobile
-              ? 1
-              : isTablet
-                  ? 2
-                  : 4;
-          final double statChildAspectRatio = isMobile
-              ? 4.0
-              : isTablet
-                  ? 3.3
-                  : 2.9;
-          final double padding = isMobile
-              ? 12.0
-              : isTablet
-                  ? 16.0
-                  : 18.0;
-
-          // Your widget build
           return SingleChildScrollView(
             padding: EdgeInsets.all(padding),
             child: Column(
               children: [
-                // Stats Cards
                 GridView.count(
                   crossAxisCount: statCrossAxisCount,
                   shrinkWrap: true,
@@ -1724,11 +1318,8 @@ class _AdminPageState extends State<AdminPage> {
                   ],
                 ),
                 const SizedBox(height: 18),
-
-                // Sections
                 Column(
                   children: [
-                    // Devices Section
                     _SectionCard(
                       title: "Devices",
                       cardColor: card,
@@ -1743,7 +1334,6 @@ class _AdminPageState extends State<AdminPage> {
                             )
                           : Column(
                               children: [
-                                // 🔹 Search field + filter
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -1760,14 +1350,9 @@ class _AdminPageState extends State<AdminPage> {
                                       },
                                     ),
                                     const SizedBox(height: 12),
-                                    // ✅ Responsive filter section
                                     LayoutBuilder(
                                       builder: (context, constraints) {
-                                        final isMobile =
-                                            constraints.maxWidth < 600;
-
-                                        if (isMobile) {
-                                          // 👉 Dropdown on mobile
+                                        if (constraints.maxWidth < 600) {
                                           return Row(
                                             mainAxisAlignment:
                                                 MainAxisAlignment.spaceBetween,
@@ -1779,11 +1364,10 @@ class _AdminPageState extends State<AdminPage> {
                                                   "Active",
                                                   "Inactive"
                                                 ]
-                                                    .map(
-                                                        (e) => DropdownMenuItem(
-                                                              value: e,
-                                                              child: Text(e),
-                                                            ))
+                                                    .map((e) =>
+                                                        DropdownMenuItem(
+                                                            value: e,
+                                                            child: Text(e)))
                                                     .toList(),
                                                 onChanged: (v) {
                                                   if (v != null)
@@ -1793,7 +1377,7 @@ class _AdminPageState extends State<AdminPage> {
                                               IconButton(
                                                 tooltip: "Refresh",
                                                 onPressed: () {
-                                                  fetchDevices();
+                                                  _loadDeviceData();
                                                   fetchAnomalies();
                                                 },
                                                 icon: Icon(Icons.refresh,
@@ -1802,7 +1386,6 @@ class _AdminPageState extends State<AdminPage> {
                                             ],
                                           );
                                         } else {
-                                          // 👉 Chips on larger screens
                                           return Wrap(
                                             spacing: 8,
                                             runSpacing: 8,
@@ -1811,9 +1394,8 @@ class _AdminPageState extends State<AdminPage> {
                                             children: [
                                               _ChipFilter(
                                                 value: filter,
-                                                onChanged: (v) {
-                                                  setState(() => filter = v);
-                                                },
+                                                onChanged: (v) =>
+                                                    setState(() => filter = v),
                                                 strong: strong,
                                                 subtle: subtle,
                                                 isDark: isDark,
@@ -1821,7 +1403,7 @@ class _AdminPageState extends State<AdminPage> {
                                               IconButton(
                                                 tooltip: "Refresh",
                                                 onPressed: () {
-                                                  fetchDevices();
+                                                  _loadDeviceData();
                                                   fetchAnomalies();
                                                 },
                                                 icon: Icon(Icons.refresh,
@@ -1845,7 +1427,7 @@ class _AdminPageState extends State<AdminPage> {
                                 else
                                   Column(
                                     children: [
-                                      ...(filteredDevices
+                                      ...filteredDevices
                                           .take(devicesToShow)
                                           .map(
                                             (d) => Column(
@@ -1853,11 +1435,9 @@ class _AdminPageState extends State<AdminPage> {
                                                 InkWell(
                                                   hoverColor: isDark
                                                       ? const Color(0xFF2C3E50)
-                                                          .withOpacity(
-                                                              0.6) // Dark mode hover
+                                                          .withOpacity(0.6)
                                                       : const Color(0xFF5BAA9D)
-                                                          .withOpacity(
-                                                              0.9), // Light mode hover
+                                                          .withOpacity(0.9),
                                                   onTap: () {
                                                     final deviceId =
                                                         d['DeviceId'] ??
@@ -1872,7 +1452,7 @@ class _AdminPageState extends State<AdminPage> {
                                                         ? "${mapped.prefix}${deviceId.padLeft(3, '0')}"
                                                         : deviceId;
                                                     final sequentialName =
-                                                        "${mapped.category}";
+                                                        mapped.category;
                                                     Navigator.push(
                                                       context,
                                                       MaterialPageRoute(
@@ -1943,52 +1523,35 @@ class _AdminPageState extends State<AdminPage> {
                                                         ),
                                                       ],
                                                     ),
-                                                    trailing: Row(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        Container(
-                                                          padding:
-                                                              const EdgeInsets
-                                                                  .symmetric(
-                                                                  horizontal:
-                                                                      10,
-                                                                  vertical: 6),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                            color: (d['isActive'] ==
-                                                                        true
-                                                                    ? Colors
-                                                                        .green
-                                                                    : Colors
-                                                                        .red)
-                                                                .withOpacity(
-                                                                    .12),
-                                                            borderRadius:
-                                                                BorderRadius
-                                                                    .circular(
-                                                                        20),
-                                                          ),
-                                                          child: Text(
-                                                            d['isActive'] ==
+                                                    trailing: Container(
+                                                      padding: const EdgeInsets
+                                                          .symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: (d['isActive'] ==
                                                                     true
-                                                                ? "Active"
-                                                                : "Inactive",
-                                                            style: TextStyle(
-                                                              color:
-                                                                  d['isActive'] ==
-                                                                          true
-                                                                      ? Colors
-                                                                          .green
-                                                                      : Colors
-                                                                          .red,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                            ),
-                                                          ),
+                                                                ? Colors.green
+                                                                : Colors.red)
+                                                            .withOpacity(.12),
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(20),
+                                                      ),
+                                                      child: Text(
+                                                        d['isActive'] == true
+                                                            ? "Active"
+                                                            : "Inactive",
+                                                        style: TextStyle(
+                                                          color:
+                                                              d['isActive'] ==
+                                                                      true
+                                                                  ? Colors.green
+                                                                  : Colors.red,
+                                                          fontWeight:
+                                                              FontWeight.w700,
                                                         ),
-                                                      ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -1997,7 +1560,7 @@ class _AdminPageState extends State<AdminPage> {
                                                         .withOpacity(.12)),
                                               ],
                                             ),
-                                          )).toList(),
+                                          ),
                                       if (devicesToShow <
                                           filteredDevices.length)
                                         TextButton(
@@ -2024,8 +1587,7 @@ class _AdminPageState extends State<AdminPage> {
                               ],
                             ),
                     ),
-
-                    // Users Section
+                    const SizedBox(height: 18),
                     _SectionCard(
                       title: "User Accounts",
                       cardColor: card,
@@ -2038,8 +1600,22 @@ class _AdminPageState extends State<AdminPage> {
                                 child: CircularProgressIndicator(),
                               ),
                             )
-                          : users.isNotEmpty
-                              ? Column(
+                          : users.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text("No users available",
+                                          style: TextStyle(color: subtle)),
+                                      const SizedBox(height: 8),
+                                      ElevatedButton(
+                                        onPressed: fetchUsers,
+                                        child: const Text("Retry"),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Column(
                                   children: [
                                     Align(
                                       alignment: Alignment.centerLeft,
@@ -2053,145 +1629,124 @@ class _AdminPageState extends State<AdminPage> {
                                     const SizedBox(height: 8),
                                     Column(
                                       children: [
-                                        ...(users.take(usersToShow).map(
+                                        ...users.take(usersToShow).map(
                                               (u) => Column(
                                                 children: [
                                                   InkWell(
-                                                      hoverColor: isDark
-                                                          ? const Color(
-                                                                  0xFF2C3E50)
-                                                              .withOpacity(
-                                                                  0.6) // Dark mode hover
-                                                          : const Color(
-                                                                  0xFF5BAA9D)
-                                                              .withOpacity(
-                                                                  0.9), // Light mode hover
-                                                      onTap: () =>
-                                                          _showUserDevices(
-                                                              u["email"]!),
-                                                      child: ListTile(
-                                                        contentPadding:
-                                                            EdgeInsets
-                                                                .symmetric(
-                                                          horizontal:
-                                                              MediaQuery.of(context)
-                                                                          .size
-                                                                          .width <
-                                                                      600
-                                                                  ? 8
-                                                                  : 16,
+                                                    hoverColor: isDark
+                                                        ? const Color(
+                                                                0xFF2C3E50)
+                                                            .withOpacity(0.6)
+                                                        : const Color(
+                                                                0xFF5BAA9D)
+                                                            .withOpacity(0.9),
+                                                    onTap: () =>
+                                                        _showUserDevices(
+                                                            u["email"]!),
+                                                    child: ListTile(
+                                                      contentPadding:
+                                                          EdgeInsets.symmetric(
+                                                        horizontal:
+                                                            getResponsiveFontSize(
+                                                                context, 8, 16),
+                                                      ),
+                                                      horizontalTitleGap:
+                                                          getResponsiveFontSize(
+                                                              context, 6, 16),
+                                                      leading: CircleAvatar(
+                                                        radius:
+                                                            getResponsiveFontSize(
+                                                                context,
+                                                                12,
+                                                                22),
+                                                        backgroundColor: Colors
+                                                            .blue
+                                                            .withOpacity(.12),
+                                                        child: Icon(
+                                                          Icons.person,
+                                                          color: Colors.blue,
+                                                          size:
+                                                              getResponsiveFontSize(
+                                                                  context,
+                                                                  14,
+                                                                  24),
                                                         ),
-                                                        horizontalTitleGap:
-                                                            MediaQuery.of(context)
-                                                                        .size
-                                                                        .width <
-                                                                    600
-                                                                ? 6
-                                                                : 16, // reduce space for mobile
-                                                        leading: CircleAvatar(
-                                                          radius: MediaQuery.of(
-                                                                          context)
-                                                                      .size
-                                                                      .width <
-                                                                  600
-                                                              ? 12
-                                                              : 22,
-                                                          backgroundColor:
-                                                              Colors.blue
-                                                                  .withOpacity(
-                                                                      .12),
-                                                          child: Icon(
-                                                            Icons.person,
-                                                            color: Colors.blue,
-                                                            size: MediaQuery.of(
-                                                                            context)
-                                                                        .size
-                                                                        .width <
-                                                                    600
-                                                                ? 14
-                                                                : 24,
-                                                          ),
+                                                      ),
+                                                      title: Text(
+                                                        u["email"] ?? "",
+                                                        style: TextStyle(
+                                                          color: strong,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          fontSize:
+                                                              getResponsiveFontSize(
+                                                                  context,
+                                                                  12,
+                                                                  14),
                                                         ),
-                                                        title: Text(
-                                                          u["email"] ?? "",
-                                                          style: TextStyle(
-                                                            color: strong,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                            fontSize:
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        maxLines: 2,
+                                                      ),
+                                                      trailing: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          IconButton(
+                                                            tooltip:
+                                                                "Add Device",
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                            constraints:
+                                                                const BoxConstraints(),
+                                                            iconSize:
                                                                 getResponsiveFontSize(
                                                                     context,
-                                                                    12,
-                                                                    14),
+                                                                    14,
+                                                                    28),
+                                                            onPressed: () =>
+                                                                _showAddDeviceDialog(
+                                                                    u["email"]!),
+                                                            icon: const Icon(
+                                                                Icons.add,
+                                                                color: Colors
+                                                                    .blue),
                                                           ),
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          maxLines: 2,
-                                                        ),
-                                                        trailing: Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            IconButton(
-                                                              tooltip:
-                                                                  "Add Device",
-                                                              padding: EdgeInsets
-                                                                  .zero, // 👈 removes extra padding around icon
-                                                              constraints:
-                                                                  const BoxConstraints(), // 👈 removes default min size
-                                                              iconSize: MediaQuery.of(
-                                                                              context)
-                                                                          .size
-                                                                          .width <
-                                                                      600
-                                                                  ? 14
-                                                                  : 28,
-                                                              onPressed: () =>
-                                                                  _showAddDeviceDialog(
-                                                                      u["email"]!),
-                                                              icon: const Icon(
-                                                                  Icons.add,
-                                                                  color: Colors
-                                                                      .blue),
-                                                            ),
-                                                            SizedBox(
-                                                                width: MediaQuery.of(context)
-                                                                            .size
-                                                                            .width <
-                                                                        600
-                                                                    ? 2
-                                                                    : 12), // 👈 spacing between icons
-                                                            IconButton(
-                                                              tooltip: "Delete",
-                                                              padding:
-                                                                  EdgeInsets
-                                                                      .zero,
-                                                              constraints:
-                                                                  const BoxConstraints(),
-                                                              iconSize: MediaQuery.of(
-                                                                              context)
-                                                                          .size
-                                                                          .width <
-                                                                      600
-                                                                  ? 14
-                                                                  : 28,
-                                                              onPressed: () =>
-                                                                  _deleteUser(u[
-                                                                      "email"]!),
-                                                              icon: const Icon(
-                                                                  Icons.delete,
-                                                                  color: Colors
-                                                                      .red),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      )),
+                                                          SizedBox(
+                                                              width:
+                                                                  getResponsiveFontSize(
+                                                                      context,
+                                                                      2,
+                                                                      12)),
+                                                          IconButton(
+                                                            tooltip: "Delete",
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                            constraints:
+                                                                const BoxConstraints(),
+                                                            iconSize:
+                                                                getResponsiveFontSize(
+                                                                    context,
+                                                                    14,
+                                                                    28),
+                                                            onPressed: () =>
+                                                                _deleteUser(u[
+                                                                    "email"]!),
+                                                            icon: const Icon(
+                                                                Icons.delete,
+                                                                color:
+                                                                    Colors.red),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
                                                   Divider(
                                                       color: subtle
                                                           .withOpacity(.12)),
                                                 ],
                                               ),
-                                            )),
+                                            ),
                                         if (usersToShow < users.length)
                                           TextButton(
                                             onPressed: () {
@@ -2214,20 +1769,6 @@ class _AdminPageState extends State<AdminPage> {
                                       ],
                                     ),
                                   ],
-                                )
-                              : Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text("No users available",
-                                          style: TextStyle(color: subtle)),
-                                      const SizedBox(height: 8),
-                                      ElevatedButton(
-                                        onPressed: fetchUsers,
-                                        child: const Text("Retry"),
-                                      ),
-                                    ],
-                                  ),
                                 ),
                     ),
                   ],
@@ -2237,55 +1778,6 @@ class _AdminPageState extends State<AdminPage> {
           );
         },
       ),
-    );
-  }
-
-  void _showDeviceDetails(Map<String, dynamic> d) {
-    showDialog(
-      context: context,
-      builder: (_) {
-        final active = d['isActive'] == true;
-        return AlertDialog(
-          title: Text("Device ${d['DeviceId']}"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Group: ${d['group']}"),
-              const SizedBox(height: 6),
-              Text("Topic: ${d['Topic']}"),
-              const SizedBox(height: 6),
-              Text("Last: ${d['lastReceivedTime']}"),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Text("Status: "),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                    decoration: BoxDecoration(
-                      color:
-                          (active ? Colors.green : Colors.red).withOpacity(.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      active ? "Active" : "Inactive",
-                      style: TextStyle(
-                          color: active ? Colors.green : Colors.red,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close")),
-          ],
-        );
-      },
     );
   }
 }
@@ -2331,6 +1823,7 @@ class _StatCard extends StatelessWidget {
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(value,
                       style: TextStyle(
@@ -2373,16 +1866,11 @@ class _SectionCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(title,
-                    style: TextStyle(
-                        color: strong,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800)),
-              ],
-            ),
+            Text(title,
+                style: TextStyle(
+                    color: strong, fontSize: 16, fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             child,
           ],

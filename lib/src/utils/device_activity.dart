@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart'; // Import the intl package
+import 'package:intl/intl.dart'; // Added for date formatting
 
 /// A data model to hold the results of the device activity fetch.
 class DeviceActivitySummary {
@@ -34,6 +34,7 @@ class DeviceService {
         final List<dynamic>? devicesList = data['devices'];
 
         if (devicesList == null || devicesList.isEmpty) {
+          // Return a summary with empty data
           return DeviceActivitySummary(
               allDevices: [],
               totalDevices: 0,
@@ -60,16 +61,21 @@ class DeviceService {
           bool isActive = false;
           if (lastTime != null) {
             final diff = DateTime.now().difference(lastTime);
-            // Device is active if it sent data within the last 24 hours
             isActive = diff.inHours <= 24;
           }
 
+          // Format the lastReceivedTime to a readable string
+          String formattedTime = lastTime != null
+              ? DateFormat('yyyy-MM-dd HH:mm:ss').format(lastTime)
+              : "N/A";
+
           devices.add({
             "DeviceId": deviceId,
-            "lastReceivedTime": lastTime?.toIso8601String() ?? "N/A",
+            "lastReceivedTime": formattedTime,
             "isActive": isActive,
             "Group": topic.split('/')[0],
             "Topic": topic,
+            // Ensure Lat/Lng are available for the map
             "LastKnownLongitude":
                 deviceData['LastKnownLongitude']?.toString() ?? "0",
             "LastKnownLatitude":
@@ -77,12 +83,9 @@ class DeviceService {
           });
         }
 
-        // Sort by active status first, then by DeviceId
         devices.sort((a, b) {
-          if (a['isActive'] != b['isActive']) {
-            return (a['isActive'] as bool) ? -1 : 1;
-          }
-          return (a['DeviceId'] as String).compareTo(b['DeviceId'] as String);
+          if (a['isActive'] == b['isActive']) return 0;
+          return (a['isActive'] as bool) ? -1 : 1;
         });
 
         int activeCount = devices.where((d) => d['isActive'] as bool).length;
@@ -95,10 +98,12 @@ class DeviceService {
           totalInactive: inactiveCount,
         );
       } else {
+        // API returned an error status code
         debugPrint("DeviceService API error: ${response.statusCode}");
         return null;
       }
     } catch (e) {
+      // General error (network issue, etc.)
       debugPrint("DeviceService fetch failed: $e");
       return null;
     }
@@ -106,36 +111,51 @@ class DeviceService {
 
   /// Private helper to parse various date formats.
   DateTime? _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty || dateStr.toLowerCase() == "n/a") {
+    if (dateStr == null || dateStr.isEmpty || dateStr == "N/A") return null;
+    try {
+      // Remove any extra spaces
+      dateStr = dateStr.trim().replaceAll(RegExp(r'\s+'), ' ');
+
+      // Handle compact format: yyyyMMddTHHmmss
+      final compactRegex = RegExp(r'^\d{8}T\d{6}$');
+      if (compactRegex.hasMatch(dateStr)) {
+        final y = int.parse(dateStr.substring(0, 4));
+        final m = int.parse(dateStr.substring(4, 6));
+        final d = int.parse(dateStr.substring(6, 8));
+        final H = int.parse(dateStr.substring(9, 11));
+        final M = int.parse(dateStr.substring(11, 13));
+        final S = int.parse(dateStr.substring(13, 15));
+        return DateTime(y, m, d, H, M, S);
+      }
+
+      // Try parsing yyyy-MM-dd HH:mm:ss
+      final standardRegex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$');
+      if (standardRegex.hasMatch(dateStr)) {
+        return DateTime.parse(dateStr);
+      }
+
+      // Try parsing dd-MM-yyyy HH:mm:ss
+      final customRegex = RegExp(r'^\d{2}-\d{2}-\d{4} \d{2}:\d{2}:\d{2}$');
+      if (customRegex.hasMatch(dateStr)) {
+        final parts = dateStr.split(' ');
+        final dateParts = parts[0].split('-');
+        final timeParts = parts[1].split(':');
+        final d = int.parse(dateParts[0]);
+        final m = int.parse(dateParts[1]);
+        final y = int.parse(dateParts[2]);
+        final H = int.parse(timeParts[0]);
+        final M = int.parse(timeParts[1]);
+        final S = int.parse(timeParts[2]);
+        return DateTime(y, m, d, H, M, S);
+      }
+
+      // Fallback to DateTime.tryParse for other formats
+      return DateTime.tryParse(dateStr);
+    } catch (e) {
+      if (kDebugMode) {
+        print("Failed to parse date: $dateStr, error: $e");
+      }
       return null;
     }
-
-    // A list of common date formats to try
-    final formats = [
-      "yyyy-MM-dd HH:mm:ss", // e.g., 2025-09-16 10:30:00
-      "dd-MM-yyyy HH:mm:ss", // e.g., 16-09-2025 10:30:00
-      "MM/dd/yyyy HH:mm:ss", // e.g., 09/16/2025 10:30:00
-    ];
-
-    dateStr = dateStr.trim();
-
-    // First, try the standard ISO 8601 parser which is very common
-    try {
-      return DateTime.parse(dateStr);
-    } catch (_) {
-      // It's not an ISO string, so we'll try our other formats.
-    }
-
-    // If that fails, iterate through our list of custom formats
-    for (var formatString in formats) {
-      try {
-        return DateFormat(formatString).parse(dateStr);
-      } catch (_) {
-        // Ignore and try the next format
-      }
-    }
-
-    debugPrint("Failed to parse date with any known format: $dateStr");
-    return null;
   }
 }
