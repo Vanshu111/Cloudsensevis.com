@@ -1198,12 +1198,12 @@ class _HomePageState extends State<HomePage> {
                   end: Alignment.bottomCenter,
                   colors: themeProvider.isDarkMode
                       ? [
-                          const Color.fromARGB(255, 57, 57, 57),
-                          const Color.fromARGB(255, 2, 54, 76),
+                          const Color.fromARGB(255, 57, 57, 57)!,
+                          const Color.fromARGB(255, 2, 54, 76)!,
                         ]
                       : [
-                          const Color.fromARGB(255, 147, 214, 207),
-                          const Color.fromARGB(255, 79, 106, 112),
+                          const Color.fromARGB(255, 147, 214, 207)!,
+                          const Color.fromARGB(255, 79, 106, 112)!,
                         ],
                 ),
               ),

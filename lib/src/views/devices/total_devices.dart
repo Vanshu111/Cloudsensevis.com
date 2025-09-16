@@ -1,7 +1,8 @@
-import 'package:cloud_sense_webapp/src/utils/device_activity.dart';
+import 'dart:convert';
 import 'package:cloud_sense_webapp/src/views/devices/device_map.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceActivityPage extends StatefulWidget {
@@ -18,7 +19,8 @@ Future<bool> isUserLoggedIn() async {
 }
 
 class _DeviceActivityPageState extends State<DeviceActivityPage> {
-  final DeviceService _deviceService = DeviceService();
+  final String apiUrl =
+      "https://d1b09mxwt0ho4j.cloudfront.net/default/WS_Device_Activity";
 
   bool isLoading = true;
   bool showList = true;
@@ -32,51 +34,98 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
   @override
   void initState() {
     super.initState();
-    _loadDeviceData();
+    fetchDevices();
   }
 
-  // ✅ New method to load data using the service
-  Future<void> _loadDeviceData() async {
+  Future<void> fetchDevices() async {
     setState(() => isLoading = true);
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final List<dynamic>? devicesList = data['devices'];
+        if (devicesList == null || devicesList.isEmpty) {
+          setState(() {
+            allDevices = [];
+            totalActive = 0;
+            totalInactive = 0;
+            isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("No device data received")),
+          );
+          return;
+        }
 
-    final summary = await _deviceService.fetchDeviceActivity();
+        List<Map<String, dynamic>> devices = [];
+        for (var device in devicesList) {
+          final deviceIdTopic = device['deviceid#topic']?.toString() ?? "";
+          if (deviceIdTopic.isEmpty) continue;
 
-    if (mounted) {
-      if (summary != null) {
+          // Split deviceid#topic into DeviceId and Topic
+          final parts = deviceIdTopic.split('#');
+          if (parts.length < 2) continue;
+          final deviceId = parts[0];
+          final topic =
+              parts.sublist(1).join('#'); // Handle topics containing '#'
+
+          // Skip devices with topics starting with 'BF/' or 'CS/' for consistency
+          if (topic.startsWith('BF/') || topic.startsWith('CS/')) {
+            continue;
+          }
+
+          DateTime? lastTime = parseDate(device['TimeStamp_IST']);
+          if (kDebugMode && lastTime == null) {
+            print(
+                "Failed to parse TimeStamp_IST: ${device['TimeStamp_IST']} for device $deviceIdTopic");
+          }
+          bool isActive = false;
+          if (lastTime != null) {
+            final diff = DateTime.now().difference(lastTime);
+            isActive = diff.inHours <= 24;
+            if (kDebugMode) {
+              print(
+                  "Device $deviceIdTopic: TimeStamp_IST=${device['TimeStamp_IST']}, Parsed=$lastTime, Diff=${diff.inHours} hours, isActive=$isActive");
+            }
+          }
+
+          devices.add({
+            "DeviceId": deviceId,
+            "lastReceivedTime": lastTime?.toString() ?? "Invalid date",
+            "isActive": isActive,
+            "Group": topic
+                .split('/')[0], // Use first part of topic as Group (e.g., 'WS')
+            "Topic": topic,
+          });
+        }
+
+        devices.sort((a, b) {
+          if (a['isActive'] == b['isActive']) return 0;
+          return a['isActive'] ? -1 : 1;
+        });
+
+        int activeCount = devices.where((d) => d['isActive']).length;
+        int inactiveCount = devices.length - activeCount;
+
         setState(() {
-          allDevices = summary.allDevices;
-          totalActive = summary.totalActive;
-          totalInactive = summary.totalInactive;
+          allDevices = devices;
+          totalActive = activeCount;
+          totalInactive = inactiveCount;
+          isLoading = false;
         });
       } else {
+        setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Failed to fetch device data.")),
+          SnackBar(content: Text("Device API error: ${response.statusCode}")),
         );
       }
+    } catch (e) {
       setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Device fetch failed")),
+      );
+      if (kDebugMode) debugPrint("fetchDevices error: $e");
     }
-  }
-
-  List<Map<String, dynamic>> get filteredDevices {
-    // ... (This method remains the same)
-    List<Map<String, dynamic>> filteredList = allDevices;
-
-    if (filter == "Active") {
-      filteredList = filteredList.where((d) => d['isActive'] as bool).toList();
-    } else if (filter == "Inactive") {
-      filteredList =
-          filteredList.where((d) => !(d['isActive'] as bool)).toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      filteredList = filteredList
-          .where((d) =>
-              d['DeviceId'].toString().toLowerCase().contains(searchQuery) ||
-              (d['Topic'] != null &&
-                  d['Topic'].toString().toLowerCase().contains(searchQuery)))
-          .toList();
-    }
-    return filteredList;
   }
 
   DateTime? parseDate(String? dateStr) {
@@ -148,6 +197,27 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
       }
       return null;
     }
+  }
+
+  List<Map<String, dynamic>> get filteredDevices {
+    List<Map<String, dynamic>> filteredList = allDevices;
+
+    if (filter == "Active") {
+      filteredList = filteredList.where((d) => d['isActive']).toList();
+    } else if (filter == "Inactive") {
+      filteredList = filteredList.where((d) => !d['isActive']).toList();
+    }
+
+    if (searchQuery.isNotEmpty) {
+      filteredList = filteredList
+          .where((d) =>
+              d['DeviceId'].toString().toLowerCase().contains(searchQuery) ||
+              (d['Topic'] != null &&
+                  d['Topic'].toString().toLowerCase().contains(searchQuery)))
+          .toList();
+    }
+
+    return filteredList;
   }
 
   // ✅ Single clean dropdown widget
@@ -283,7 +353,7 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
               Icons.refresh,
               color: isDarkMode ? Colors.white : Colors.black,
             ),
-            onPressed: _loadDeviceData,
+            onPressed: fetchDevices,
           ),
           IconButton(
             icon: Icon(
@@ -319,7 +389,7 @@ class _DeviceActivityPageState extends State<DeviceActivityPage> {
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
-                onRefresh: _loadDeviceData,
+                onRefresh: fetchDevices,
                 child: Column(
                   children: [
                     Container(

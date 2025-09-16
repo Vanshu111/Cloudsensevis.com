@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart'; // Import the intl package
 
 /// A data model to hold the results of the device activity fetch.
 class DeviceActivitySummary {
@@ -33,7 +34,6 @@ class DeviceService {
         final List<dynamic>? devicesList = data['devices'];
 
         if (devicesList == null || devicesList.isEmpty) {
-          // Return a summary with empty data
           return DeviceActivitySummary(
               allDevices: [],
               totalDevices: 0,
@@ -60,6 +60,7 @@ class DeviceService {
           bool isActive = false;
           if (lastTime != null) {
             final diff = DateTime.now().difference(lastTime);
+            // Device is active if it sent data within the last 24 hours
             isActive = diff.inHours <= 24;
           }
 
@@ -69,7 +70,6 @@ class DeviceService {
             "isActive": isActive,
             "Group": topic.split('/')[0],
             "Topic": topic,
-            // Ensure Lat/Lng are available for the map
             "LastKnownLongitude":
                 deviceData['LastKnownLongitude']?.toString() ?? "0",
             "LastKnownLatitude":
@@ -77,9 +77,12 @@ class DeviceService {
           });
         }
 
+        // Sort by active status first, then by DeviceId
         devices.sort((a, b) {
-          if (a['isActive'] == b['isActive']) return 0;
-          return (a['isActive'] as bool) ? -1 : 1;
+          if (a['isActive'] != b['isActive']) {
+            return (a['isActive'] as bool) ? -1 : 1;
+          }
+          return (a['DeviceId'] as String).compareTo(b['DeviceId'] as String);
         });
 
         int activeCount = devices.where((d) => d['isActive'] as bool).length;
@@ -92,12 +95,10 @@ class DeviceService {
           totalInactive: inactiveCount,
         );
       } else {
-        // API returned an error status code
         debugPrint("DeviceService API error: ${response.statusCode}");
         return null;
       }
     } catch (e) {
-      // General error (network issue, etc.)
       debugPrint("DeviceService fetch failed: $e");
       return null;
     }
@@ -105,14 +106,36 @@ class DeviceService {
 
   /// Private helper to parse various date formats.
   DateTime? _parseDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty || dateStr == "N/A") return null;
-    try {
-      dateStr = dateStr.trim().replaceAll(RegExp(r'\s+'), ' ');
-      // Add more parsing logic here if needed, similar to your original function
-      return DateTime.tryParse(dateStr);
-    } catch (e) {
-      debugPrint("Failed to parse date: $dateStr, error: $e");
+    if (dateStr == null || dateStr.isEmpty || dateStr.toLowerCase() == "n/a") {
       return null;
     }
+
+    // A list of common date formats to try
+    final formats = [
+      "yyyy-MM-dd HH:mm:ss", // e.g., 2025-09-16 10:30:00
+      "dd-MM-yyyy HH:mm:ss", // e.g., 16-09-2025 10:30:00
+      "MM/dd/yyyy HH:mm:ss", // e.g., 09/16/2025 10:30:00
+    ];
+
+    dateStr = dateStr.trim();
+
+    // First, try the standard ISO 8601 parser which is very common
+    try {
+      return DateTime.parse(dateStr);
+    } catch (_) {
+      // It's not an ISO string, so we'll try our other formats.
+    }
+
+    // If that fails, iterate through our list of custom formats
+    for (var formatString in formats) {
+      try {
+        return DateFormat(formatString).parse(dateStr);
+      } catch (_) {
+        // Ignore and try the next format
+      }
+    }
+
+    debugPrint("Failed to parse date with any known format: $dateStr");
+    return null;
   }
 }
